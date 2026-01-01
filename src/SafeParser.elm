@@ -86,21 +86,21 @@ map f (P p) =
 
 andThen0 : (a -> Parser (Maybe Chomps) b) -> Parser (Maybe Chomps) a -> Parser (Maybe Chomps) b
 andThen0 =
-    andThenImplementation
+    implAndThen
 
 
 andThen1 : (a -> Parser constraints b) -> Parser Chomps a -> Parser chomps b
 andThen1 =
-    andThenImplementation
+    implAndThen
 
 
 andThen2 : (a -> Parser Chomps b) -> Parser constraints a -> Parser chomps b
 andThen2 =
-    andThenImplementation
+    implAndThen
 
 
-andThenImplementation : (a -> Parser constraints1 b) -> Parser constraints2 a -> Parser constraints3 b
-andThenImplementation f (P p) =
+implAndThen : (a -> Parser constraints1 b) -> Parser constraints2 a -> Parser constraints3 b
+implAndThen f (P p) =
     let
         unwrappedF =
             \x ->
@@ -113,9 +113,8 @@ andThenImplementation f (P p) =
     P (ElmParser.andThen unwrappedF p)
 
 
-type Step state a
-    = Loop state
-    | Done a
+type alias Step state a =
+    ElmParser.Step state a
 
 
 loop : state -> (state -> Parser Chomps (Step state a)) -> Parser chomps a
@@ -127,29 +126,24 @@ loop state callback =
                     callback s
             in
             p
-                |> ElmParser.map
-                    (\p_ ->
-                        case p_ of
-                            Loop s_ ->
-                                ElmParser.Loop s_
-
-                            Done a ->
-                                ElmParser.Done a
-                    )
     in
     P (ElmParser.loop state unwrappedCallback)
 
 
 continue : Parser constraints state -> Parser constraints (Step state a)
 continue =
-    map Loop
+    map ElmParser.Loop
 
 
 done : Parser Chomps a -> Parser chomps (Step state a)
-done (P p) =
-    P (ElmParser.map Done p)
+done =
+    implDone
 
 
 unsafelyDone : Parser (Maybe Chomps) a -> Parser chomps (Step state a)
-unsafelyDone (P p) =
-    P (ElmParser.map Done p)
+unsafelyDone =
+    implDone
+
+
+implDone (P p) =
+    P (ElmParser.map ElmParser.Done p)
