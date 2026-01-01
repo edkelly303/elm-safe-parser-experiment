@@ -1,26 +1,22 @@
 module SafeParser exposing
-    ( Chomps
-    , Parser
-    , Step
-    , andThen0
-    , andThen1
-    , andThen2
-    , backtrackable
-    , chompIf
-    , chompWhile
-    , continue
-    , done
-    , keep
-    , keep0
-    , loop
-    , map
-    , oneOf
-    , run
-    , skip
-    , skip0
-    , succeed
-    , unsafelyDone
+    ( Parser, run
+    , Chomps, chompIf, chompWhile
+    , succeed, keep, keep0, skip, skip0
+    , oneOf, backtrackable
+    , map, andThen0, andThen1, andThen2
+    , Step, loop, continue, done, unsafelyDone
     )
+
+{-|
+
+@docs Parser, run
+@docs Chomps, chompIf, chompWhile
+@docs succeed, keep, keep0, skip, skip0
+@docs oneOf, backtrackable
+@docs map, andThen0, andThen1, andThen2
+@docs Step, loop, continue, done, unsafelyDone
+
+-}
 
 import Parser as ElmParser exposing ((|.), (|=))
 
