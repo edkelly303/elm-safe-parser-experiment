@@ -4,7 +4,19 @@ import SafeParser exposing (..)
 
 
 example =
-    run statements "1111"
+    run dangerous "1111"
+
+
+dangerous : Parser chomps (List String)
+dangerous =
+    loop []
+        (\state ->
+            oneOf
+                [ succeed ()
+                    |> map (\() -> "a" :: state)
+                    |> unsafelyDone
+                ]
+        )
 
 
 oneDigitOrManyAlphaParser =
@@ -23,11 +35,11 @@ statementsHelp revStmts =
     oneOf
         [ succeed (\x y -> ( x, y ) :: revStmts)
             |> keep0 oneDigitOrManyAlphaParser
-            -- |> skip0 oneDigitOrManyAlphaParser
-            -- |> skip1 (chompWhile Char.isDigit)
-            -- |> keep0 (chompWhile Char.isAlpha)
             |> keep (chompIf Char.isDigit)
+            |> skip0 oneDigitOrManyAlphaParser
+            |> skip0 (chompWhile Char.isDigit)
+            -- |> keep0 (chompWhile Char.isAlpha)
             |> continue
         , succeed (List.reverse revStmts)
-            |> done0
+            |> unsafelyDone
         ]

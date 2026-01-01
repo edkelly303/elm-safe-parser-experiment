@@ -2,12 +2,13 @@ module SafeParser exposing
     ( Chomps
     , Parser
     , Step
+    , andThen
+    , andThen0
     , backtrackable
     , chompIf
     , chompWhile
     , continue
     , done
-    , done0
     , keep
     , keep0
     , loop
@@ -17,6 +18,7 @@ module SafeParser exposing
     , skip
     , skip0
     , succeed
+    , unsafelyDone
     )
 
 import Parser as ElmParser exposing ((|.), (|=))
@@ -70,8 +72,8 @@ done (P p) =
     P (ElmParser.map Done p)
 
 
-done0 : Parser (Maybe Chomps) a -> Parser chomps (Step state a)
-done0 (P p) =
+unsafelyDone : Parser (Maybe Chomps) a -> Parser chomps (Step state a)
+unsafelyDone (P p) =
     P (ElmParser.map Done p)
 
 
@@ -85,7 +87,31 @@ map f (P p) =
     P (ElmParser.map f p)
 
 
-keep0 : Parser (Maybe Chomps) a -> Parser constraints (a -> b) -> Parser (Maybe Chomps) b
+andThen : (a -> Parser Chomps b) -> Parser Chomps a -> Parser chomps b
+andThen =
+    andThenImplementation
+
+
+andThen0 : (a -> Parser (Maybe Chomps) b) -> Parser (Maybe Chomps) a -> Parser (Maybe Chomps) b
+andThen0 =
+    andThenImplementation
+
+
+andThenImplementation : (a -> Parser constraints1 b) -> Parser constraints2 a -> Parser constraints3 b
+andThenImplementation f (P p) =
+    let
+        unwrappedF =
+            \x ->
+                let
+                    (P p2) =
+                        f x
+                in
+                p2
+    in
+    P (ElmParser.andThen unwrappedF p)
+
+
+keep0 : Parser (Maybe Chomps) a -> Parser constraints (a -> b) -> Parser constraints b
 keep0 (P x) (P f) =
     P (f |= x)
 
@@ -95,7 +121,7 @@ keep (P x) (P f) =
     P (f |= x)
 
 
-skip0 : Parser (Maybe Chomps) skip -> Parser constraints keep -> Parser (Maybe Chomps) keep
+skip0 : Parser (Maybe Chomps) skip -> Parser constraints keep -> Parser constraints keep
 skip0 _ (P keeper) =
     P keeper
 
