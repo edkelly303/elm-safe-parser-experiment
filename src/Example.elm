@@ -1,6 +1,5 @@
 module Example exposing (..)
 
-import Browser.Navigation exposing (back)
 import SafeParser exposing (..)
 
 
