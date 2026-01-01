@@ -2,8 +2,9 @@ module SafeParser exposing
     ( Chomps
     , Parser
     , Step
-    , andThen
     , andThen0
+    , andThen1
+    , andThen2
     , backtrackable
     , chompIf
     , chompWhile
@@ -87,13 +88,18 @@ map f (P p) =
     P (ElmParser.map f p)
 
 
-andThen : (a -> Parser Chomps b) -> Parser Chomps a -> Parser chomps b
-andThen =
+andThen0 : (a -> Parser (Maybe Chomps) b) -> Parser (Maybe Chomps) a -> Parser (Maybe Chomps) b
+andThen0 =
     andThenImplementation
 
 
-andThen0 : (a -> Parser (Maybe Chomps) b) -> Parser (Maybe Chomps) a -> Parser (Maybe Chomps) b
-andThen0 =
+andThen1 : (a -> Parser constraints b) -> Parser Chomps a -> Parser chomps b
+andThen1 =
+    andThenImplementation
+
+
+andThen2 : (a -> Parser Chomps b) -> Parser constraints a -> Parser chomps b
+andThen2 =
     andThenImplementation
 
 
