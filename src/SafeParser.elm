@@ -19,11 +19,11 @@ module SafeParser exposing
     , succeed
     )
 
-import Parser as OP exposing ((|.), (|=))
+import Parser as ElmParser exposing ((|.), (|=))
 
 
 type Parser constraints a
-    = P (OP.Parser a)
+    = P (ElmParser.Parser a)
 
 
 type Step state a
@@ -35,44 +35,44 @@ type Chomps
     = Chomps Never
 
 
-run : Parser constraints a -> String -> Result (List OP.DeadEnd) a
+run : Parser constraints a -> String -> Result (List ElmParser.DeadEnd) a
 run (P p) string =
-    OP.run p string
+    ElmParser.run p string
 
 
 backtrackable : Parser constraints a -> Parser constraints a
 backtrackable (P p) =
-    P (OP.backtrackable p)
+    P (ElmParser.backtrackable p)
 
 
 chompIf : (Char -> Bool) -> Parser chomps ()
 chompIf test =
-    P (OP.chompIf test)
+    P (ElmParser.chompIf test)
 
 
 chompWhile : (Char -> Bool) -> Parser (Maybe Chomps) ()
 chompWhile test =
-    P (OP.chompWhile test)
+    P (ElmParser.chompWhile test)
 
 
 oneOf : List (Parser constraints a) -> Parser constraints a
 oneOf list =
-    P (OP.oneOf (List.map (\(P p) -> p) list))
+    P (ElmParser.oneOf (List.map (\(P p) -> p) list))
 
 
 succeed : a -> Parser (Maybe Chomps) a
 succeed a =
-    P (OP.succeed a)
+    P (ElmParser.succeed a)
 
 
 done : Parser Chomps a -> Parser chomps (Step state a)
 done (P p) =
-    P (OP.map Done p)
+    P (ElmParser.map Done p)
 
 
 done0 : Parser (Maybe Chomps) a -> Parser chomps (Step state a)
 done0 (P p) =
-    P (OP.map Done p)
+    P (ElmParser.map Done p)
 
 
 continue : Parser constraints state -> Parser constraints (Step state a)
@@ -82,7 +82,7 @@ continue =
 
 map : (a -> b) -> Parser constraints a -> Parser constraints b
 map f (P p) =
-    P (OP.map f p)
+    P (ElmParser.map f p)
 
 
 keep0 : Parser (Maybe Chomps) a -> Parser constraints (a -> b) -> Parser (Maybe Chomps) b
@@ -114,14 +114,14 @@ loop state callback =
                     callback s
             in
             p
-                |> OP.map
+                |> ElmParser.map
                     (\p_ ->
                         case p_ of
                             Loop s_ ->
-                                OP.Loop s_
+                                ElmParser.Loop s_
 
                             Done a ->
-                                OP.Done a
+                                ElmParser.Done a
                     )
     in
-    P (OP.loop state unwrappedCallback)
+    P (ElmParser.loop state unwrappedCallback)
