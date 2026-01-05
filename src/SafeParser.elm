@@ -69,10 +69,14 @@ import Parser as ElmParser exposing ((|.), (|=))
 -}
 
 
+{-| todo
+-}
 type Parser any a
     = P (ElmParser.Parser a)
 
 
+{-| todo
+-}
 run : Parser any a -> String -> Result (List ElmParser.DeadEnd) a
 run (P p) string =
     ElmParser.run p string
@@ -91,24 +95,34 @@ run (P p) string =
 -}
 
 
+{-| todo
+-}
 type AlwaysChomps
     = AlwayChomps Never
 
 
+{-| todo
+-}
 type MightNotChomp
     = MightNotChomp Never
 
 
+{-| todo
+-}
 chompIf : (Char -> Bool) -> Parser alwaysChomps ()
 chompIf test =
     P (ElmParser.chompIf test)
 
 
+{-| todo
+-}
 chompWhile : (Char -> Bool) -> Parser MightNotChomp ()
 chompWhile test =
     P (ElmParser.chompWhile test)
 
 
+{-| todo
+-}
 getChompedString : Parser any a -> Parser any String
 getChompedString (P p) =
     P (ElmParser.getChompedString p)
@@ -127,6 +141,8 @@ getChompedString (P p) =
 -}
 
 
+{-| todo
+-}
 symbol : String -> Parser alwayChomps ()
 symbol str =
     P
@@ -151,11 +167,15 @@ symbol str =
 -}
 
 
+{-| todo
+-}
 succeed : a -> Parser MightNotChomp a
 succeed a =
     P (ElmParser.succeed a)
 
 
+{-| todo
+-}
 problem : String -> Parser MightNotChomp a
 problem string =
     P (ElmParser.problem string)
@@ -174,11 +194,15 @@ problem string =
 -}
 
 
+{-| todo
+-}
 keep : Parser AlwaysChomps a -> Parser any (a -> b) -> Parser alwaysChomps b
 keep =
     implKeep
 
 
+{-| todo
+-}
 keep0 : Parser MightNotChomp a -> Parser any (a -> b) -> Parser any b
 keep0 =
     implKeep
@@ -189,11 +213,15 @@ implKeep (P x) (P f) =
     P (f |= x)
 
 
+{-| todo
+-}
 skip : Parser AlwaysChomps skip -> Parser any keep -> Parser alwaysChomps keep
 skip =
     implSkip
 
 
+{-| todo
+-}
 skip0 : Parser MightNotChomp skip -> Parser any keep -> Parser any keep
 skip0 =
     implSkip
@@ -217,11 +245,15 @@ implSkip (P skipper) (P keeper) =
 -}
 
 
+{-| todo
+-}
 or : Parser any a -> Parser AlwaysChomps a -> Parser any a
 or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
 
 
+{-| todo
+-}
 backtrackable : Parser any a -> Parser any a
 backtrackable (P p) =
     P (ElmParser.backtrackable p)
@@ -240,21 +272,29 @@ backtrackable (P p) =
 -}
 
 
+{-| todo
+-}
 map : (a -> b) -> Parser any a -> Parser any b
 map f (P p) =
     P (ElmParser.map f p)
 
 
+{-| todo
+-}
 andThenMightNotChomp : (a -> Parser MightNotChomp b) -> Parser MightNotChomp a -> Parser MightNotChomp b
 andThenMightNotChomp =
     implAndThen
 
 
+{-| todo
+-}
 andThenChompsBefore : (a -> Parser any b) -> Parser AlwaysChomps a -> Parser alwaysChomps b
 andThenChompsBefore =
     implAndThen
 
 
+{-| todo
+-}
 andThenChompsAfter : (a -> Parser AlwaysChomps b) -> Parser any a -> Parser alwaysChomps b
 andThenChompsAfter =
     implAndThen
@@ -286,20 +326,40 @@ implAndThen f (P p) =
 -}
 
 
+{-| todo
+-}
 type alias Step state a =
     ElmParser.Step state a
 
 
+{-| todo
+-}
 continue : Parser any state -> Parser any (Step state a)
 continue =
     map ElmParser.Loop
 
 
+{-| todo
+-}
 done : Parser any a -> Parser any (Step state a)
 done =
     map ElmParser.Done
 
 
+{-| The first callback must always chomp - if it didn't, then:
+
+  - Either it would be a non-chomping `Done`, in which case there's no need to use
+    `loop` at all.
+
+  - Or it would be a non-chomping `Loop`, in which case we'd fall into an infinite
+    loop.
+
+Subsequent callbacks might or might not chomp. If they are `MightNotChomp`, then
+the whole `loop` will be classified as `MightNotChomp`. (This is important to
+ensure that if we pass this `loop` into _another_ `loop`, we won't end up with
+an infinite loop.)
+
+-}
 loop :
     { initialState : state
     , firstCallback : state -> Parser AlwaysChomps (Step state a)
