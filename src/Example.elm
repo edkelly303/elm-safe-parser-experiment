@@ -1,11 +1,40 @@
 module Example exposing (main)
 
+{-| This example is adapted from Alex Korban's `elm/parser` tutorial at
+<https://korban.net/posts/elm/2018-09-07-introduction-elm-parser>
+-}
+
 import Browser
 import Html exposing (Html, button, div, h2, input, text)
 import Html.Attributes exposing (class, placeholder, value)
 import Html.Events exposing (onClick, onInput)
 import Parser
-import SafeParser exposing (..)
+import SafeParser
+    exposing
+        ( --AlwaysChomps
+          --,
+          MightNotChomp
+        , Parser
+          --, Step
+          --, andThenChompsAfter
+        , andThenChompsBefore
+        , andThenMightNotChomp
+          --, backtrackable
+        , chompIf
+        , chompWhile
+        , getChompedString
+        , keep
+        , keep0
+        , loop
+        , map
+        , or
+        , problem
+        , run
+        , skip
+        , skip0
+        , succeed
+        , symbol
+        )
 
 
 type alias Phone =
@@ -167,7 +196,7 @@ view model =
                 Err [] ->
                     "No input parsed"
 
-                Err deadEnds ->
+                Err _ ->
                     "Errors: " ++ Debug.toString model.phone
 
                 Ok phone ->
