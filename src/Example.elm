@@ -23,47 +23,26 @@ whitespace =
 countryCode : Parser MightNotChomp (Maybe Int)
 countryCode =
     let
-        option1 =
+        justValidCountryCode =
             succeed Just
                 |> skip0 whitespace
-                |> skip0 (symbol "+")
+                |> skip (symbol "+")
                 |> keep int
                 |> skip0 whitespace
+
+        nothing =
+            succeed Nothing
     in
-    option1
-        |> or (succeed Nothing)
-
-
-symbol : String -> Parser alwaysChomps String
-symbol str =
-    let
-        helper state =
-            oneOf
-                [ chompIf (\c -> Just c == (state |> String.uncons |> Maybe.map Tuple.first))
-                    |> map (\() -> String.dropLeft 1 state)
-                    |> continue
-                , chompIf (\c -> c == ' ')
-                    |> andThen1
-                        (\() ->
-                            if state == "" then
-                                succeed str
-
-                            else
-                                problem "not a match"
-                        )
-                    |> done
-                ]
-    in
-    loop str helper
+    justValidCountryCode
+        |> or nothing
 
 
 int : Parser alwaysChomps Int
 int =
-    succeed ()
-        |> skip (chompIf Char.isDigit)
-        |> skip0 (chompWhile Char.isDigit)
-        |> getChompedString
-        |> andThen1
+    succeed (\first rest -> first ++ rest)
+        |> keep (chompIf Char.isDigit |> getChompedString)
+        |> keep0 (chompWhile Char.isDigit |> getChompedString)
+        |> andThenChompsBefore
             (\str ->
                 case String.toInt str of
                     Just n ->
@@ -77,7 +56,7 @@ int =
 areaCode : Parser MightNotChomp (Maybe Int)
 areaCode =
     let
-        option1 =
+        justValidAreaCode =
             succeed String.toInt
                 |> skip (symbol "(")
                 |> skip0 whitespace
@@ -85,33 +64,35 @@ areaCode =
                 |> skip0 whitespace
                 |> skip (symbol ")")
                 |> skip0 whitespace
+
+        nothing =
+            succeed Nothing
     in
-    option1
-        |> or (succeed Nothing)
+    justValidAreaCode
+        |> or nothing
 
 
-localNumberStr : Parser constraints String
-localNumberStr =
-    loop [] localHelp
-        |> map String.concat
-
-
-
--- localHelp : List String -> Parser MightNotChomp (Step (List String) (List String))
-
-
-localHelp nums =
+localNumberString : Parser MightNotChomp String
+localNumberString =
     let
-        checkNum numsSoFar num =
-            if String.length num > 0 then
-                Parser.Loop (num :: numsSoFar)
+        chompDigit state =
+            chompIf Char.isDigit
+                |> getChompedString
+                |> map (\str -> str :: state)
+                |> continue
 
-            else
-                Parser.Done (List.reverse numsSoFar)
+        return state =
+            state
+                |> List.reverse
+                |> String.concat
+                |> succeed
+                |> doneUnsafely
+
+        help state =
+            chompDigit state
+                |> or (return state)
     in
-    succeed (checkNum nums)
-        |> keep0 (getChompedString <| chompWhile Char.isDigit)
-        |> skip0 whitespace
+    loop [] help
 
 
 localNumber : Parser MightNotChomp Int
@@ -124,10 +105,11 @@ localNumber =
             else
                 problem "A NZ phone number has 7 digits"
     in
-    localNumberStr
-        |> andThen0 checkDigits
+    localNumberString
+        |> getChompedString
+        |> andThenMightNotChomp checkDigits
         |> map String.toInt
-        |> andThen0
+        |> andThenMightNotChomp
             (\maybe ->
                 case maybe of
                     Just n ->
@@ -140,16 +122,12 @@ localNumber =
 
 phoneParser : Parser MightNotChomp Phone
 phoneParser =
-    succeed Phone
+    succeed
+        Phone
         |> skip0 whitespace
         |> keep0 countryCode
         |> keep0 areaCode
         |> keep0 localNumber
-
-
-parse : String -> Result (List Parser.DeadEnd) Phone
-parse str =
-    run phoneParser str
 
 
 type alias Model =
