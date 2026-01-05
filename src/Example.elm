@@ -81,20 +81,18 @@ localNumberString =
             chompIf Char.isDigit
                 |> getChompedString
                 |> map (\str -> str :: state)
-                |> continue
 
-        return state =
+        reverseAndConcat state =
             state
                 |> List.reverse
                 |> String.concat
                 |> succeed
-                |> doneUnsafely
-
-        help state =
-            chompDigit state
-                |> or (return state)
     in
-    loop [] help
+    loop
+        { initialState = []
+        , loopCallback = chompDigit
+        , doneCallback = reverseAndConcat
+        }
 
 
 localNumber : Parser MightNotChomp Int

@@ -4,9 +4,9 @@ module SafeParser exposing
     , symbol
     , succeed, problem
     , keep, keep0, skip, skip0
-    , or, oneOf, backtrackable
+    , or, backtrackable
     , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
-    , Step, loop, continue, done, doneUnsafely
+    , Step, loop
     )
 
 {-|
@@ -17,12 +17,12 @@ module SafeParser exposing
 @docs Parser, run
 
 
-## Chomping
+## Chomping inputs
 
 @docs AlwaysChomps, MightNotChomp, chompIf, chompWhile, getChompedString
 
 
-## Parser helpers
+## Generally useful parsers
 
 @docs symbol
 
@@ -39,7 +39,7 @@ module SafeParser exposing
 
 ## Choosing parsers
 
-@docs or, oneOf, backtrackable
+@docs or, backtrackable
 
 
 ## Transforming parsers
@@ -49,7 +49,7 @@ module SafeParser exposing
 
 ## Looping parsers
 
-@docs Step, loop, continue, done, doneUnsafely
+@docs Step, loop
 
 -}
 
@@ -69,11 +69,11 @@ import Parser as ElmParser exposing ((|.), (|=))
 -}
 
 
-type Parser constraints a
+type Parser any a
     = P (ElmParser.Parser a)
 
 
-run : Parser constraints a -> String -> Result (List ElmParser.DeadEnd) a
+run : Parser any a -> String -> Result (List ElmParser.DeadEnd) a
 run (P p) string =
     ElmParser.run p string
 
@@ -109,7 +109,7 @@ chompWhile test =
     P (ElmParser.chompWhile test)
 
 
-getChompedString : Parser constraints a -> Parser constraints String
+getChompedString : Parser any a -> Parser any String
 getChompedString (P p) =
     P (ElmParser.getChompedString p)
 
@@ -174,32 +174,32 @@ problem string =
 -}
 
 
-keep : Parser AlwaysChomps a -> Parser constraints (a -> b) -> Parser alwaysChomps b
+keep : Parser AlwaysChomps a -> Parser any (a -> b) -> Parser alwaysChomps b
 keep =
     implKeep
 
 
-keep0 : Parser MightNotChomp a -> Parser constraints (a -> b) -> Parser constraints b
+keep0 : Parser MightNotChomp a -> Parser any (a -> b) -> Parser any b
 keep0 =
     implKeep
 
 
-implKeep : Parser constraints a -> Parser constraints2 (a -> b) -> Parser constraints3 b
+implKeep : Parser any a -> Parser any2 (a -> b) -> Parser any3 b
 implKeep (P x) (P f) =
     P (f |= x)
 
 
-skip : Parser AlwaysChomps skip -> Parser constraints keep -> Parser alwaysChomps keep
+skip : Parser AlwaysChomps skip -> Parser any keep -> Parser alwaysChomps keep
 skip =
     implSkip
 
 
-skip0 : Parser MightNotChomp skip -> Parser constraints keep -> Parser constraints keep
+skip0 : Parser MightNotChomp skip -> Parser any keep -> Parser any keep
 skip0 =
     implSkip
 
 
-implSkip : Parser constraints skip -> Parser constraints2 keep -> Parser constraints3 keep
+implSkip : Parser any skip -> Parser any2 keep -> Parser any3 keep
 implSkip (P skipper) (P keeper) =
     P (keeper |. skipper)
 
@@ -217,17 +217,12 @@ implSkip (P skipper) (P keeper) =
 -}
 
 
-or : Parser constraints a -> Parser AlwaysChomps a -> Parser constraints a
+or : Parser any a -> Parser AlwaysChomps a -> Parser any a
 or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
 
 
-oneOf : List (Parser constraints a) -> Parser constraints a
-oneOf list =
-    P (ElmParser.oneOf (List.map (\(P p) -> p) list))
-
-
-backtrackable : Parser constraints a -> Parser constraints a
+backtrackable : Parser any a -> Parser any a
 backtrackable (P p) =
     P (ElmParser.backtrackable p)
 
@@ -245,7 +240,7 @@ backtrackable (P p) =
 -}
 
 
-map : (a -> b) -> Parser constraints a -> Parser constraints b
+map : (a -> b) -> Parser any a -> Parser any b
 map f (P p) =
     P (ElmParser.map f p)
 
@@ -255,17 +250,17 @@ andThenMightNotChomp =
     implAndThen
 
 
-andThenChompsBefore : (a -> Parser constraints b) -> Parser AlwaysChomps a -> Parser alwaysChomps b
+andThenChompsBefore : (a -> Parser any b) -> Parser AlwaysChomps a -> Parser alwaysChomps b
 andThenChompsBefore =
     implAndThen
 
 
-andThenChompsAfter : (a -> Parser AlwaysChomps b) -> Parser constraints a -> Parser alwaysChomps b
+andThenChompsAfter : (a -> Parser AlwaysChomps b) -> Parser any a -> Parser alwaysChomps b
 andThenChompsAfter =
     implAndThen
 
 
-implAndThen : (a -> Parser constraints1 b) -> Parser constraints2 a -> Parser constraints3 b
+implAndThen : (a -> Parser any1 b) -> Parser any2 a -> Parser any3 b
 implAndThen f (P p) =
     let
         elmParserF x =
@@ -295,34 +290,25 @@ type alias Step state a =
     ElmParser.Step state a
 
 
-loop : state -> (state -> Parser AlwaysChomps (Step state a)) -> Parser alwaysChomps a
-loop state callback =
+loop :
+    { initialState : state
+    , loopCallback : state -> Parser AlwaysChomps state
+    , doneCallback : state -> Parser any a
+    }
+    -> Parser alwaysChomps a
+loop { initialState, loopCallback, doneCallback } =
     let
-        unwrappedCallback s =
-            let
-                (P p) =
-                    callback s
-            in
-            p
+        continue state =
+            loopCallback state
+                |> map ElmParser.Loop
+
+        done state =
+            doneCallback state
+                |> map ElmParser.Done
+
+        callback state =
+            continue state
+                |> or (done state)
+                |> (\(P p) -> p)
     in
-    P (ElmParser.loop state unwrappedCallback)
-
-
-continue : Parser constraints state -> Parser constraints (Step state a)
-continue =
-    map ElmParser.Loop
-
-
-done : Parser AlwaysChomps a -> Parser alwaysChomps (Step state a)
-done =
-    implDone
-
-
-doneUnsafely : Parser MightNotChomp a -> Parser alwaysChomps (Step state a)
-doneUnsafely =
-    implDone
-
-
-implDone : Parser constraints a -> Parser constraints2 (ElmParser.Step state a)
-implDone (P p) =
-    P (ElmParser.map ElmParser.Done p)
+    P (ElmParser.loop initialState callback)
