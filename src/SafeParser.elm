@@ -131,15 +131,14 @@ andThenChompsAfter =
 implAndThen : (a -> Parser constraints1 b) -> Parser constraints2 a -> Parser constraints3 b
 implAndThen f (P p) =
     let
-        unwrappedF =
-            \x ->
-                let
-                    (P p2) =
-                        f x
-                in
-                p2
+        elmParserF x =
+            let
+                (P p2) =
+                    f x
+            in
+            p2
     in
-    P (ElmParser.andThen unwrappedF p)
+    P (ElmParser.andThen elmParserF p)
 
 
 type alias Step state a =
