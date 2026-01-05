@@ -1,4 +1,4 @@
-module Example exposing (main)
+module Main exposing (main)
 
 {-| This example is adapted from Alex Korban's `elm/parser` tutorial at
 <https://korban.net/posts/elm/2018-09-07-introduction-elm-parser>

@@ -1,0 +1,12 @@
+{
+    "targets": {
+        "elm-safe-parser-experiment example": {
+            "inputs": [
+                "src/Main.elm"
+            ],
+            "output": "build/main.js"
+        }
+    },
+    "serve": "./build",
+    "port": 8100
+}
