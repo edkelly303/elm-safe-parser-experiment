@@ -4,6 +4,8 @@ module DocumentationCodeSnippetTest exposing (tests)
 -}
 
 import Expect
+import Parser
+import SafeParser
 import Test
 
 
@@ -11,7 +13,43 @@ tests : Test.Test
 tests =
     Test.describe
         "documentation code snippets"
-        [ Test.test
-            "currently none. Since having no code snippets is perfectly fine, adding this simple test tells elm-test that everything's good (empty tests fail or throw warnings)"
-            (\() -> Expect.pass)
+        [ Test.describe
+            "readme"
+            [ Test.describe
+                "code snippet 0"
+                [ Test.test
+                    "0"
+                    (\() ->
+                        Parser.run oops__Readme_0 "a"
+                            |> Expect.equal (Result.Ok "")
+                    )
+                ]
+            , Test.describe
+                "code snippet 1"
+                [ Test.test
+                    "0"
+                    (\() ->
+                        let
+                            unused : SafeParser.Parser SafeParser.MightNotChomp ()
+                            unused =
+                                oneAlpha__Readme_1
+                                    |> SafeParser.or zeroOrMoreDigits__Readme_1
+                        in
+                        Expect.pass
+                    )
+                ]
+            ]
         ]
+
+
+oops__Readme_0 =
+    Parser.oneOf [ Parser.chompWhile Char.isDigit, Parser.chompIf Char.isAlpha ]
+        |> Parser.getChompedString
+
+
+zeroOrMoreDigits__Readme_1 =
+    SafeParser.chompWhile Char.isDigit
+
+
+oneAlpha__Readme_1 =
+    SafeParser.chompIf Char.isAlpha
