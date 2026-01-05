@@ -74,13 +74,15 @@ areaCode =
 
 localNumberString : Parser MightNotChomp String
 localNumberString =
-    -- this is a silly implementation, but we want to have an example of using
-    -- `loop`
     let
         chompDigit state =
             chompIf Char.isDigit
                 |> getChompedString
                 |> map (\str -> str :: state)
+
+        chompSpace state =
+            chompIf (\c -> c == ' ')
+                |> map (\_ -> state)
 
         reverseAndConcat state =
             state
@@ -90,7 +92,7 @@ localNumberString =
     in
     loop
         { initialState = []
-        , loopCallback = chompDigit
+        , loopCallback = \state -> chompDigit state |> or (chompSpace state)
         , doneCallback = reverseAndConcat
         }
 
@@ -106,7 +108,6 @@ localNumber =
                 problem "A NZ phone number has 7 digits"
     in
     localNumberString
-        |> getChompedString
         |> andThenMightNotChomp checkDigits
         |> map String.toInt
         |> andThenMightNotChomp
