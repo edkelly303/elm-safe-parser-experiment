@@ -6,7 +6,7 @@ module SafeParser exposing
     , keep, keep0, skip, skip0
     , or, backtrackable
     , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
-    , Step, loop, cont, done
+    , Step, loop, continue, done
     )
 
 {-|
@@ -49,7 +49,7 @@ module SafeParser exposing
 
 ## Looping parsers
 
-@docs Step, loop, loop2, cont, done
+@docs Step, loop, loop2, continue, done
 
 -}
 
@@ -290,8 +290,8 @@ type alias Step state a =
     ElmParser.Step state a
 
 
-cont : Parser any state -> Parser any (Step state a)
-cont =
+continue : Parser any state -> Parser any (Step state a)
+continue =
     map ElmParser.Loop
 
 

@@ -108,12 +108,12 @@ localNumberString =
             chompIf Char.isDigit
                 |> getChompedString
                 |> map (\str -> str :: state)
-                |> cont
+                |> continue
 
         chompSpace state =
             chompIf (\c -> c == ' ')
                 |> map (\_ -> state)
-                |> cont
+                |> continue
 
         reverseAndConcat state =
             state
