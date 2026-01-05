@@ -1,24 +1,72 @@
 module SafeParser exposing
     ( Parser, run
     , AlwaysChomps, MightNotChomp, chompIf, chompWhile, getChompedString
-    , succeed, problem, keep, keep0, skip, skip0
+    , symbol
+    , succeed, problem
+    , keep, keep0, skip, skip0
     , or, oneOf, backtrackable
-    , map, andThen0, andThen1, andThen2
-    , Step, loop, continue, done, unsafelyDone
+    , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
+    , Step, loop, continue, done, doneUnsafely
     )
 
 {-|
 
+
+## Running parsers
+
 @docs Parser, run
+
+
+## Chomping
+
 @docs AlwaysChomps, MightNotChomp, chompIf, chompWhile, getChompedString
-@docs succeed, problem, keep, keep0, skip, skip0
+
+
+## Parser helpers
+
+@docs symbol
+
+
+## Succeeding and failing
+
+@docs succeed, problem
+
+
+## Combining parsers
+
+@docs keep, keep0, skip, skip0
+
+
+## Choosing parsers
+
 @docs or, oneOf, backtrackable
-@docs map, andThen0, andThen1, andThen2
-@docs Step, loop, continue, done, unsafelyDone
+
+
+## Transforming parsers
+
+@docs map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
+
+
+## Looping parsers
+
+@docs Step, loop, continue, done, doneUnsafely
 
 -}
 
 import Parser as ElmParser exposing ((|.), (|=))
+
+
+
+{-
+   d8888b. db    db d8b   db d8b   db d888888b d8b   db  d888b
+   88  `8D 88    88 888o  88 888o  88   `88'   888o  88 88' Y8b
+   88oobY' 88    88 88V8o 88 88V8o 88    88    88V8o 88 88
+   88`8b   88    88 88 V8o88 88 V8o88    88    88 V8o88 88  ooo
+   88 `88. 88b  d88 88  V888 88  V888   .88.   88  V888 88. ~8~
+   88   YD ~Y8888P' VP   V8P VP   V8P Y888888P VP   V8P  Y888P
+
+
+-}
 
 
 type Parser constraints a
@@ -30,22 +78,25 @@ run (P p) string =
     ElmParser.run p string
 
 
+
+{-
+    .o88b. db   db  .d88b.  .88b  d88. d8888b. d888888b d8b   db  d888b
+   d8P  Y8 88   88 .8P  Y8. 88'YbdP`88 88  `8D   `88'   888o  88 88' Y8b
+   8P      88ooo88 88    88 88  88  88 88oodD'    88    88V8o 88 88
+   8b      88~~~88 88    88 88  88  88 88~~~      88    88 V8o88 88  ooo
+   Y8b  d8 88   88 `8b  d8' 88  88  88 88        .88.   88  V888 88. ~8~
+    `Y88P' YP   YP  `Y88P'  YP  YP  YP 88      Y888888P VP   V8P  Y888P
+
+
+-}
+
+
 type AlwaysChomps
     = AlwayChomps Never
 
 
 type MightNotChomp
     = MightNotChomp Never
-
-
-getChompedString : Parser constraints a -> Parser constraints String
-getChompedString (P p) =
-    P (ElmParser.getChompedString p)
-
-
-problem : String -> Parser MightNotChomp a
-problem string =
-    P (ElmParser.problem string)
 
 
 chompIf : (Char -> Bool) -> Parser alwaysChomps ()
@@ -58,18 +109,78 @@ chompWhile test =
     P (ElmParser.chompWhile test)
 
 
+getChompedString : Parser constraints a -> Parser constraints String
+getChompedString (P p) =
+    P (ElmParser.getChompedString p)
+
+
+
+{-
+   db   db d88888b db      d8888b. d88888b d8888b. .d8888.
+   88   88 88'     88      88  `8D 88'     88  `8D 88'  YP
+   88ooo88 88ooooo 88      88oodD' 88ooooo 88oobY' `8bo.
+   88~~~88 88~~~~~ 88      88~~~   88~~~~~ 88`8b     `Y8b.
+   88   88 88.     88booo. 88      88.     88 `88. db   8D
+   YP   YP Y88888P Y88888P 88      Y88888P 88   YD `8888Y'
+
+
+-}
+
+
+symbol : String -> Parser alwayChomps ()
+symbol str =
+    P
+        (if String.isEmpty str then
+            ElmParser.problem "The `symbol` parser cannot match an empty string"
+
+         else
+            ElmParser.symbol str
+        )
+
+
+
+{-
+   .d8888. db    db  .o88b.  .o88b. d88888b d88888b d8888b. d888888b d8b   db  d888b        .d8b.  d8b   db d8888b.      d88888b  .d8b.  d888888b db      d888888b d8b   db  d888b
+   88'  YP 88    88 d8P  Y8 d8P  Y8 88'     88'     88  `8D   `88'   888o  88 88' Y8b      d8' `8b 888o  88 88  `8D      88'     d8' `8b   `88'   88        `88'   888o  88 88' Y8b
+   `8bo.   88    88 8P      8P      88ooooo 88ooooo 88   88    88    88V8o 88 88           88ooo88 88V8o 88 88   88      88ooo   88ooo88    88    88         88    88V8o 88 88
+     `Y8b. 88    88 8b      8b      88~~~~~ 88~~~~~ 88   88    88    88 V8o88 88  ooo      88~~~88 88 V8o88 88   88      88~~~   88~~~88    88    88         88    88 V8o88 88  ooo
+   db   8D 88b  d88 Y8b  d8 Y8b  d8 88.     88.     88  .8D   .88.   88  V888 88. ~8~      88   88 88  V888 88  .8D      88      88   88   .88.   88booo.   .88.   88  V888 88. ~8~
+   `8888Y' ~Y8888P'  `Y88P'  `Y88P' Y88888P Y88888P Y8888D' Y888888P VP   V8P  Y888P       YP   YP VP   V8P Y8888D'      YP      YP   YP Y888888P Y88888P Y888888P VP   V8P  Y888P
+
+
+-}
+
+
 succeed : a -> Parser MightNotChomp a
 succeed a =
     P (ElmParser.succeed a)
 
 
-keep0 : Parser MightNotChomp a -> Parser constraints (a -> b) -> Parser constraints b
-keep0 =
-    implKeep
+problem : String -> Parser MightNotChomp a
+problem string =
+    P (ElmParser.problem string)
+
+
+
+{-
+    .o88b.  .d88b.  .88b  d88. d8888b. d888888b d8b   db d888888b d8b   db  d888b
+   d8P  Y8 .8P  Y8. 88'YbdP`88 88  `8D   `88'   888o  88   `88'   888o  88 88' Y8b
+   8P      88    88 88  88  88 88oooY'    88    88V8o 88    88    88V8o 88 88
+   8b      88    88 88  88  88 88~~~b.    88    88 V8o88    88    88 V8o88 88  ooo
+   Y8b  d8 `8b  d8' 88  88  88 88   8D   .88.   88  V888   .88.   88  V888 88. ~8~
+    `Y88P'  `Y88P'  YP  YP  YP Y8888P' Y888888P VP   V8P Y888888P VP   V8P  Y888P
+
+
+-}
 
 
 keep : Parser AlwaysChomps a -> Parser constraints (a -> b) -> Parser alwaysChomps b
 keep =
+    implKeep
+
+
+keep0 : Parser MightNotChomp a -> Parser constraints (a -> b) -> Parser constraints b
+keep0 =
     implKeep
 
 
@@ -78,19 +189,32 @@ implKeep (P x) (P f) =
     P (f |= x)
 
 
-skip0 : Parser MightNotChomp skip -> Parser constraints keep -> Parser constraints keep
-skip0 =
+skip : Parser AlwaysChomps skip -> Parser constraints keep -> Parser alwaysChomps keep
+skip =
     implSkip
 
 
-skip : Parser AlwaysChomps skip -> Parser constraints keep -> Parser alwaysChomps keep
-skip =
+skip0 : Parser MightNotChomp skip -> Parser constraints keep -> Parser constraints keep
+skip0 =
     implSkip
 
 
 implSkip : Parser constraints skip -> Parser constraints2 keep -> Parser constraints3 keep
 implSkip (P skipper) (P keeper) =
     P (keeper |. skipper)
+
+
+
+{-
+    .o88b. db   db  .d88b.   .d88b.  .d8888. d888888b d8b   db  d888b
+   d8P  Y8 88   88 .8P  Y8. .8P  Y8. 88'  YP   `88'   888o  88 88' Y8b
+   8P      88ooo88 88    88 88    88 `8bo.      88    88V8o 88 88
+   8b      88~~~88 88    88 88    88   `Y8b.    88    88 V8o88 88  ooo
+   Y8b  d8 88   88 `8b  d8' `8b  d8' db   8D   .88.   88  V888 88. ~8~
+    `Y88P' YP   YP  `Y88P'   `Y88P'  `8888Y' Y888888P VP   V8P  Y888P
+
+
+-}
 
 
 or : Parser constraints a -> Parser AlwaysChomps a -> Parser constraints a
@@ -106,6 +230,19 @@ oneOf list =
 backtrackable : Parser constraints a -> Parser constraints a
 backtrackable (P p) =
     P (ElmParser.backtrackable p)
+
+
+
+{-
+   d888888b d8888b.  .d8b.  d8b   db .d8888. d88888b  .d88b.  d8888b. .88b  d88. d888888b d8b   db  d888b
+   `~~88~~' 88  `8D d8' `8b 888o  88 88'  YP 88'     .8P  Y8. 88  `8D 88'YbdP`88   `88'   888o  88 88' Y8b
+      88    88oobY' 88ooo88 88V8o 88 `8bo.   88ooo   88    88 88oobY' 88  88  88    88    88V8o 88 88
+      88    88`8b   88~~~88 88 V8o88   `Y8b. 88~~~   88    88 88`8b   88  88  88    88    88 V8o88 88  ooo
+      88    88 `88. 88   88 88  V888 db   8D 88      `8b  d8' 88 `88. 88  88  88   .88.   88  V888 88. ~8~
+      YP    88   YD YP   YP VP   V8P `8888Y' YP       `Y88P'  88   YD YP  YP  YP Y888888P VP   V8P  Y888P
+
+
+-}
 
 
 map : (a -> b) -> Parser constraints a -> Parser constraints b
@@ -139,6 +276,19 @@ implAndThen f (P p) =
             p2
     in
     P (ElmParser.andThen elmParserF p)
+
+
+
+{-
+   db       .d88b.   .d88b.  d8888b. d888888b d8b   db  d888b
+   88      .8P  Y8. .8P  Y8. 88  `8D   `88'   888o  88 88' Y8b
+   88      88    88 88    88 88oodD'    88    88V8o 88 88
+   88      88    88 88    88 88~~~      88    88 V8o88 88  ooo
+   88booo. `8b  d8' `8b  d8' 88        .88.   88  V888 88. ~8~
+   Y88888P  `Y88P'   `Y88P'  88      Y888888P VP   V8P  Y888P
+
+
+-}
 
 
 type alias Step state a =
