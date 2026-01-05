@@ -74,6 +74,8 @@ areaCode =
 
 localNumberString : Parser MightNotChomp String
 localNumberString =
+    -- this is a silly implementation, but we want to have an example of using
+    -- `loop`
     let
         chompDigit state =
             chompIf Char.isDigit
