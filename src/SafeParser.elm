@@ -49,7 +49,7 @@ module SafeParser exposing
 
 ## Looping parsers
 
-@docs Step, loop, loop2, continue, done
+@docs Step, loop, continue, done
 
 -}
 
