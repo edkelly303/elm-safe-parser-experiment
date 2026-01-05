@@ -113,18 +113,18 @@ map f (P p) =
     P (ElmParser.map f p)
 
 
-andThen0 : (a -> Parser MightNotChomp b) -> Parser MightNotChomp a -> Parser MightNotChomp b
-andThen0 =
+andThenMightNotChomp : (a -> Parser MightNotChomp b) -> Parser MightNotChomp a -> Parser MightNotChomp b
+andThenMightNotChomp =
     implAndThen
 
 
-andThen1 : (a -> Parser constraints b) -> Parser AlwaysChomps a -> Parser alwaysChomps b
-andThen1 =
+andThenChompsBefore : (a -> Parser constraints b) -> Parser AlwaysChomps a -> Parser alwaysChomps b
+andThenChompsBefore =
     implAndThen
 
 
-andThen2 : (a -> Parser AlwaysChomps b) -> Parser constraints a -> Parser alwaysChomps b
-andThen2 =
+andThenChompsAfter : (a -> Parser AlwaysChomps b) -> Parser constraints a -> Parser alwaysChomps b
+andThenChompsAfter =
     implAndThen
 
 
