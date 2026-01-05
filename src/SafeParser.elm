@@ -168,8 +168,8 @@ done =
     implDone
 
 
-unsafelyDone : Parser MightNotChomp a -> Parser alwaysChomps (Step state a)
-unsafelyDone =
+doneUnsafely : Parser MightNotChomp a -> Parser alwaysChomps (Step state a)
+doneUnsafely =
     implDone
 
 
