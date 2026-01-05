@@ -295,7 +295,7 @@ loop :
     , loopCallback : state -> Parser AlwaysChomps state
     , doneCallback : state -> Parser any a
     }
-    -> Parser alwaysChomps a
+    -> Parser any a
 loop { initialState, loopCallback, doneCallback } =
     let
         continue state =
