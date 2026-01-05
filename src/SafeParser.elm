@@ -6,7 +6,7 @@ module SafeParser exposing
     , keep, keep0, skip, skip0
     , or, backtrackable
     , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
-    , Step, loop
+    , Step, loop, cont, done
     )
 
 {-|
@@ -49,7 +49,7 @@ module SafeParser exposing
 
 ## Looping parsers
 
-@docs Step, loop
+@docs Step, loop, loop2, cont, done
 
 -}
 
@@ -290,25 +290,33 @@ type alias Step state a =
     ElmParser.Step state a
 
 
+cont : Parser any state -> Parser any (Step state a)
+cont =
+    map ElmParser.Loop
+
+
+done : Parser any a -> Parser any (Step state a)
+done =
+    map ElmParser.Done
+
+
 loop :
     { initialState : state
-    , loopCallback : state -> Parser AlwaysChomps state
-    , doneCallback : state -> Parser any a
+    , firstCallback : state -> Parser AlwaysChomps (Step state a)
+    , restCallbacks : state -> Parser any (Step state a)
     }
     -> Parser any a
-loop { initialState, loopCallback, doneCallback } =
+loop { initialState, firstCallback, restCallbacks } =
     let
-        continue state =
-            loopCallback state
-                |> map ElmParser.Loop
+        first state =
+            firstCallback state
 
-        done state =
-            doneCallback state
-                |> map ElmParser.Done
+        rest state =
+            restCallbacks state
 
         callback state =
-            continue state
-                |> or (done state)
+            first state
+                |> or (rest state)
                 |> (\(P p) -> p)
     in
     P (ElmParser.loop initialState callback)

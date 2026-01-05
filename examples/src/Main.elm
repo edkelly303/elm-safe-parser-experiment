@@ -25,7 +25,7 @@ import SafeParser
         , getChompedString
         , keep
         , keep0
-        , loop
+        , loop, cont, done
         , map
         , or
         , problem
@@ -108,23 +108,30 @@ localNumberString =
             chompIf Char.isDigit
                 |> getChompedString
                 |> map (\str -> str :: state)
+                |> cont
 
         chompSpace state =
             chompIf (\c -> c == ' ')
                 |> map (\_ -> state)
+                |> cont
 
         reverseAndConcat state =
             state
                 |> List.reverse
                 |> String.concat
                 |> succeed
+                |> done
     in
     loop
         { initialState = []
-        , loopCallback = \state -> chompDigit state |> or (chompSpace state)
-        , doneCallback = reverseAndConcat
+        , firstCallback = 
+            \state -> 
+                chompDigit state 
+        , restCallbacks = 
+            \state -> 
+                chompSpace state
+                    |> or (reverseAndConcat state)
         }
-
 
 localNumber : Parser MightNotChomp Int
 localNumber =
