@@ -89,8 +89,8 @@ skip =
 
 
 implSkip : Parser constraints skip -> Parser constraints2 keep -> Parser constraints3 keep
-implSkip _ (P keeper) =
-    P keeper
+implSkip (P skipper) (P keeper) =
+    P (keeper |. skipper)
 
 
 or : Parser constraints a -> Parser AlwaysChomps a -> Parser constraints a
