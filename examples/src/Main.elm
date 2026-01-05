@@ -22,10 +22,12 @@ import SafeParser
           --, backtrackable
         , chompIf
         , chompWhile
+        , continue
+        , done
         , getChompedString
         , keep
         , keep0
-        , loop, cont, done
+        , loop
         , map
         , or
         , problem
@@ -124,14 +126,15 @@ localNumberString =
     in
     loop
         { initialState = []
-        , firstCallback = 
-            \state -> 
-                chompDigit state 
-        , restCallbacks = 
-            \state -> 
+        , firstCallback =
+            \state ->
+                chompDigit state
+        , restCallbacks =
+            \state ->
                 chompSpace state
                     |> or (reverseAndConcat state)
         }
+
 
 localNumber : Parser MightNotChomp Int
 localNumber =
