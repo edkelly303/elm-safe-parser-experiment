@@ -11,9 +11,9 @@ import Html.Events exposing (onClick, onInput)
 import Parser
 import SafeParser
     exposing
-        ( --AlwaysChomps
+        ( --MightFail
           --,
-          MightNotChomp
+          AlwaysSucceeds
         , Parser
           --, Step
           --, andThenChompsAfter
@@ -46,12 +46,12 @@ type alias Phone =
     }
 
 
-whitespace : Parser MightNotChomp ()
+whitespace : Parser AlwaysSucceeds ()
 whitespace =
     chompWhile (\c -> c == ' ')
 
 
-countryCode : Parser MightNotChomp (Maybe Int)
+countryCode : Parser AlwaysSucceeds (Maybe Int)
 countryCode =
     let
         justValidCountryCode =
@@ -68,7 +68,7 @@ countryCode =
         |> or nothing
 
 
-int : Parser alwaysChomps Int
+int : Parser mightFail Int
 int =
     succeed (\first rest -> first ++ rest)
         |> keep (chompIf Char.isDigit |> getChompedString)
@@ -84,7 +84,7 @@ int =
             )
 
 
-areaCode : Parser MightNotChomp (Maybe Int)
+areaCode : Parser AlwaysSucceeds (Maybe Int)
 areaCode =
     let
         justValidAreaCode =
@@ -103,7 +103,7 @@ areaCode =
         |> or nothing
 
 
-localNumberString : Parser MightNotChomp String
+localNumberString : Parser AlwaysSucceeds String
 localNumberString =
     let
         chompDigit state =
@@ -136,7 +136,7 @@ localNumberString =
         }
 
 
-localNumber : Parser MightNotChomp Int
+localNumber : Parser AlwaysSucceeds Int
 localNumber =
     let
         checkDigits s =
@@ -160,7 +160,7 @@ localNumber =
             )
 
 
-phoneParser : Parser MightNotChomp Phone
+phoneParser : Parser AlwaysSucceeds Phone
 phoneParser =
     succeed
         Phone

@@ -30,7 +30,7 @@ tests =
                     "0"
                     (\() ->
                         let
-                            unused : SafeParser.Parser SafeParser.MightNotChomp ()
+                            unused : SafeParser.Parser SafeParser.AlwaysSucceeds ()
                             unused =
                                 oneAlpha__Readme_1
                                     |> SafeParser.or zeroOrMoreDigits__Readme_1
@@ -221,12 +221,12 @@ oops__Readme_0 =
         |> Parser.getChompedString
 
 
-zeroOrMoreDigits__Readme_1 : SafeParser.Parser SafeParser.MightNotChomp ()
+zeroOrMoreDigits__Readme_1 : SafeParser.Parser SafeParser.AlwaysSucceeds ()
 zeroOrMoreDigits__Readme_1 =
     SafeParser.chompWhile Char.isDigit
 
 
-oneAlpha__Readme_1 : SafeParser.Parser alwaysChomps ()
+oneAlpha__Readme_1 : SafeParser.Parser mightFail ()
 oneAlpha__Readme_1 =
     SafeParser.chompIf Char.isAlpha
 
@@ -240,18 +240,18 @@ ohYeah__Readme_2 =
         }
 
 
-chompUpper__SafeParser__chompIf_0 : SafeParser.Parser alwaysChomps ()
+chompUpper__SafeParser__chompIf_0 : SafeParser.Parser mightFail ()
 chompUpper__SafeParser__chompIf_0 =
     SafeParser.chompIf Char.isUpper
 
 
-whitespace__SafeParser__chompWhile_0 : SafeParser.Parser SafeParser.MightNotChomp ()
+whitespace__SafeParser__chompWhile_0 : SafeParser.Parser SafeParser.AlwaysSucceeds ()
 whitespace__SafeParser__chompWhile_0 =
     SafeParser.chompWhile
         (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
 
 
-elmVar__SafeParser__chompWhile_0 : SafeParser.Parser alwaysChomps String.String
+elmVar__SafeParser__chompWhile_0 : SafeParser.Parser mightFail String.String
 elmVar__SafeParser__chompWhile_0 =
     SafeParser.succeed Basics.identity
         |> SafeParser.keep (SafeParser.chompIf Char.isLower)
@@ -260,7 +260,7 @@ elmVar__SafeParser__chompWhile_0 =
         |> SafeParser.getChompedString
 
 
-php__SafeParser__getChompedString_0 : SafeParser.Parser alwaysChomps String.String
+php__SafeParser__getChompedString_0 : SafeParser.Parser mightFail String.String
 php__SafeParser__getChompedString_0 =
     SafeParser.succeed ()
         |> SafeParser.skip (SafeParser.chompIf (\c -> c == '$'))
@@ -275,7 +275,7 @@ type alias Point__SafeParser__keep_0 =
     { x : Basics.Int, y : Basics.Int }
 
 
-int__SafeParser__keep_0 : SafeParser.Parser SafeParser.AlwaysChomps Basics.Int
+int__SafeParser__keep_0 : SafeParser.Parser SafeParser.MightFail Basics.Int
 int__SafeParser__keep_0 =
     SafeParser.succeed (++)
         |> SafeParser.keep
@@ -293,7 +293,7 @@ int__SafeParser__keep_0 =
             )
 
 
-point__SafeParser__keep_0 : SafeParser.Parser SafeParser.AlwaysChomps Point__SafeParser__keep_0
+point__SafeParser__keep_0 : SafeParser.Parser SafeParser.MightFail Point__SafeParser__keep_0
 point__SafeParser__keep_0 =
     SafeParser.succeed Point__SafeParser__keep_0
         |> SafeParser.skip0 (SafeParser.symbol "(")
@@ -308,7 +308,7 @@ type NullableBool__SafeParser__or_0
     | Null__SafeParser__or_0
 
 
-nullableBool__SafeParser__or_0 : SafeParser.Parser alwaysChomps NullableBool__SafeParser__or_0
+nullableBool__SafeParser__or_0 : SafeParser.Parser mightFail NullableBool__SafeParser__or_0
 nullableBool__SafeParser__or_0 =
     SafeParser.map
         (\_ -> Boolean__SafeParser__or_0 Basics.True)
@@ -325,7 +325,7 @@ nullableBool__SafeParser__or_0 =
             )
 
 
-var__SafeParser__skip_0 : SafeParser.Parser alwaysChomps String.String
+var__SafeParser__skip_0 : SafeParser.Parser mightFail String.String
 var__SafeParser__skip_0 =
     SafeParser.succeed ()
         |> SafeParser.skip (SafeParser.chompIf isStartChar__SafeParser__skip_0)

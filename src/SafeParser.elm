@@ -1,12 +1,13 @@
 module SafeParser exposing
     ( Parser, run
-    , AlwaysChomps, MightNotChomp, chompIf, chompWhile, getChompedString
+    , MightFail, chompIf, chompWhile, getChompedString
     , symbol
     , succeed, problem
     , keep, keep0, skip, skip0
     , or, backtrackable
     , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
     , Step, continue, done, loop
+    , AlwaysSucceeds
     )
 
 {-|
@@ -19,7 +20,7 @@ module SafeParser exposing
 
 ## Chomping inputs
 
-@docs AlwaysChomps, MightNotChomp, chompIf, chompWhile, getChompedString
+@docs MightFail, AlwaysSucceeds, chompIf, chompWhile, getChompedString
 
 
 ## Generally useful parsers
@@ -100,22 +101,22 @@ run (P p) string =
 {-| A phantom type indicating that a `Parser` is guaranteed to chomp at least
 one character when it succeeds.
 -}
-type AlwaysChomps
+type MightFail
     = AlwayChomps Never
 
 
 {-| A phantom type indicating that a `Parser` might succeed without chomping any
 characters.
 -}
-type MightNotChomp
-    = MightNotChomp Never
+type AlwaysSucceeds
+    = AlwaysSucceeds Never
 
 
 {-| Chomp one character if it passes the test.
 
     import SafeParser exposing (Parser, chompIf, run)
 
-    chompUpper : Parser alwaysChomps ()
+    chompUpper : Parser mightFail ()
     chompUpper =
         chompIf Char.isUpper
 
@@ -124,7 +125,7 @@ type MightNotChomp
 So this can chomp a character like `"T"` and produces a `()` value.
 
 -}
-chompIf : (Char -> Bool) -> Parser alwaysChomps ()
+chompIf : (Char -> Bool) -> Parser mightFail ()
 chompIf test =
     P (ElmParser.chompIf test)
 
@@ -132,13 +133,13 @@ chompIf test =
 {-| Chomp zero or more characters if they pass the test. This is commonly
 useful for chomping whitespace or variable names:
 
-    import SafeParser exposing (Parser, MightNotChomp, chompIf, chompWhile, getChompedString, succeed, keep, skip0, run)
+    import SafeParser exposing (Parser, AlwaysSucceeds, chompIf, chompWhile, getChompedString, succeed, keep, skip0, run)
 
-    whitespace : Parser MightNotChomp ()
+    whitespace : Parser AlwaysSucceeds ()
     whitespace =
         chompWhile (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
 
-    elmVar : Parser alwaysChomps String
+    elmVar : Parser mightFail String
     elmVar =
         succeed identity
             |> keep (chompIf Char.isLower)
@@ -150,7 +151,7 @@ useful for chomping whitespace or variable names:
 Note: a `chompWhile` parser always succeeds!
 
 -}
-chompWhile : (Char -> Bool) -> Parser MightNotChomp ()
+chompWhile : (Char -> Bool) -> Parser AlwaysSucceeds ()
 chompWhile test =
     P (ElmParser.chompWhile test)
 
@@ -161,7 +162,7 @@ valid PHP variables like $x and $txt:
 
     import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip, skip0, run)
 
-    php : Parser alwaysChomps String
+    php : Parser mightFail String
     php =
         succeed ()
             |> skip (chompIf (\c -> c == '$'))
@@ -248,7 +249,7 @@ Seems weird on its own, but it is very useful in combination with other
 functions. The docs for `keep` and `andThen` have some neat examples.
 
 -}
-succeed : a -> Parser MightNotChomp a
+succeed : a -> Parser AlwaysSucceeds a
 succeed a =
     P (ElmParser.succeed a)
 
@@ -257,7 +258,7 @@ succeed a =
 until I ran into this problem." Check out the `andThen` docs to see an example
 usage.
 -}
-problem : String -> Parser MightNotChomp a
+problem : String -> Parser AlwaysSucceeds a
 problem string =
     P (ElmParser.problem string)
 
@@ -277,12 +278,12 @@ problem string =
 
 {-| Keep values in a parser pipeline. For example, we could say:
 
-    import SafeParser exposing (AlwaysChomps, Parser, andThenChompsBefore, chompIf, chompWhile, getChompedString, keep, keep0, problem, skip0, succeed, symbol, run)
+    import SafeParser exposing (MightFail, Parser, andThenChompsBefore, chompIf, chompWhile, getChompedString, keep, keep0, problem, skip0, succeed, symbol, run)
 
     type alias Point =
         { x : Int, y : Int }
 
-    int : Parser AlwaysChomps Int
+    int : Parser MightFail Int
     int =
         succeed (++)
             |> keep
@@ -303,7 +304,7 @@ problem string =
                             problem "not an int"
                 )
 
-    point : Parser AlwaysChomps Point
+    point : Parser MightFail Point
     point =
         succeed Point
             |> skip0 (symbol "(")
@@ -324,15 +325,15 @@ So in this case, we skip the `()` from `symbol "("`, we keep the `Int` from
 `int`, etc.
 
 -}
-keep : Parser AlwaysChomps a -> Parser any (a -> b) -> Parser alwaysChomps b
+keep : Parser MightFail a -> Parser any (a -> b) -> Parser mightFail b
 keep =
     implKeep
 
 
 {-| See docs for [`keep`](#keep). The `keep0` version of this function must be
-used if you want to keep the value from a `MightNotChomp` parser.
+used if you want to keep the value from a `AlwaysSucceeds` parser.
 -}
-keep0 : Parser MightNotChomp a -> Parser any (a -> b) -> Parser any b
+keep0 : Parser AlwaysSucceeds a -> Parser any (a -> b) -> Parser any b
 keep0 =
     implKeep
 
@@ -347,7 +348,7 @@ JavaScript variables:
 
     import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip, skip0, run)
 
-    var : Parser alwaysChomps String
+    var : Parser mightFail String
     var =
         succeed ()
             |> skip (chompIf isStartChar)
@@ -371,15 +372,15 @@ characters, but skip the two `()` values that get produced. No one cares about
 them.
 
 -}
-skip : Parser AlwaysChomps skip -> Parser any keep -> Parser alwaysChomps keep
+skip : Parser MightFail skip -> Parser any keep -> Parser mightFail keep
 skip =
     implSkip
 
 
 {-| See docs for [`skip`](#skip). The `skip0` version of this function must be
-used if you want to skip the value produced by a `MightNotChomp` parser.
+used if you want to skip the value produced by a `AlwaysSucceeds` parser.
 -}
-skip0 : Parser MightNotChomp skip -> Parser any keep -> Parser any keep
+skip0 : Parser AlwaysSucceeds skip -> Parser any keep -> Parser any keep
 skip0 =
     implSkip
 
@@ -411,7 +412,7 @@ with the first one that succeeds.
         = Boolean Bool
         | Null
 
-    nullableBool : Parser alwaysChomps NullableBool
+    nullableBool : Parser mightFail NullableBool
     nullableBool =
         (map (\_ -> Boolean True) (symbol "true"))
             |> or (map (\_ -> Boolean False) (symbol "false"))
@@ -421,7 +422,7 @@ with the first one that succeeds.
     run nullableBool "null" --> Ok (Null)
 
 -}
-or : Parser any a -> Parser AlwaysChomps a -> Parser any a
+or : Parser any a -> Parser MightFail a -> Parser any a
 or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
 
@@ -455,30 +456,30 @@ map f (P p) =
 
 {-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
 
-This version of `andThen` is used when the initial and resulting parsers are both `MightNotChomp`.
+This version of `andThen` is used when the initial and resulting parsers are both `AlwaysSucceeds`.
 
 -}
-andThenMightNotChomp : (a -> Parser MightNotChomp b) -> Parser MightNotChomp a -> Parser MightNotChomp b
+andThenMightNotChomp : (a -> Parser AlwaysSucceeds b) -> Parser AlwaysSucceeds a -> Parser AlwaysSucceeds b
 andThenMightNotChomp =
     implAndThen
 
 
 {-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
 
-This version of `andThen` is used when the initial parser is `AlwaysChomps`.
+This version of `andThen` is used when the initial parser is `MightFail`.
 
 -}
-andThenChompsBefore : (a -> Parser any b) -> Parser AlwaysChomps a -> Parser alwaysChomps b
+andThenChompsBefore : (a -> Parser any b) -> Parser MightFail a -> Parser mightFail b
 andThenChompsBefore =
     implAndThen
 
 
 {-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
 
-This version of `andThen` is used when the resulting parser is `AlwaysChomps`.
+This version of `andThen` is used when the resulting parser is `MightFail`.
 
 -}
-andThenChompsAfter : (a -> Parser AlwaysChomps b) -> Parser any a -> Parser alwaysChomps b
+andThenChompsAfter : (a -> Parser MightFail b) -> Parser any a -> Parser mightFail b
 andThenChompsAfter =
     implAndThen
 
@@ -521,7 +522,7 @@ type alias Step state a =
 chomp something if it succeeds. This makes it impossible to fall into infinite
 loops.
 -}
-continue : Parser AlwaysChomps state -> Parser any (Step state a)
+continue : Parser MightFail state -> Parser any (Step state a)
 continue (P p) =
     P (ElmParser.map ElmParser.Loop p)
 
@@ -543,17 +544,17 @@ done =
   - Or it would be a non-chomping `Loop`, in which case we'd immediately fall
     into an infinite loop.
 
-Subsequent callbacks that continue looping must also be `AlwaysChomps`, but if
-they end the loop, then it's ok for them to be `MightNotChomp`.
+Subsequent callbacks that continue looping must also be `MightFail`, but if
+they end the loop, then it's ok for them to be `AlwaysSucceeds`.
 
-If they are `MightNotChomp`, then the whole `loop` will be classified as
-`MightNotChomp`. This is important to ensure that if we pass this `loop` into
+If they are `AlwaysSucceeds`, then the whole `loop` will be classified as
+`AlwaysSucceeds`. This is important to ensure that if we pass this `loop` into
 _another_ `loop`, we won't end up with an infinite loop.
 
 -}
 loop :
     { initialState : state
-    , firstCallback : state -> Parser AlwaysChomps (Step state a)
+    , firstCallback : state -> Parser MightFail (Step state a)
     , restCallbacks : state -> Parser any (Step state a)
     }
     -> Parser any a
