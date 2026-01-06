@@ -62,6 +62,171 @@ tests =
                     )
                 ]
             ]
+        , Test.describe
+            "SafeParser"
+            [ Test.describe
+                "chompIf"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run chompUpper__SafeParser__chompIf_0 "T"
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    ]
+                ]
+            , Test.describe
+                "chompWhile"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                elmVar__SafeParser__chompWhile_0
+                                "helloWorld"
+                                |> Expect.equal (Result.Ok "helloWorld")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "getChompedString"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                php__SafeParser__getChompedString_0
+                                "$my_var"
+                                |> Expect.equal (Result.Ok "$my_var")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "keep"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run point__SafeParser__keep_0 "(123,456)"
+                                |> Expect.equal (Result.Ok { x = 123, y = 456 })
+                        )
+                    ]
+                ]
+            , Test.describe
+                "or"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run nullableBool__SafeParser__or_0 "true"
+                                |> Expect.equal
+                                    (Result.Ok
+                                        (Boolean__SafeParser__or_0 Basics.True)
+                                    )
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run nullableBool__SafeParser__or_0 "null"
+                                |> Expect.equal
+                                    (Result.Ok Null__SafeParser__or_0)
+                        )
+                    ]
+                ]
+            , Test.describe
+                "skip"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run var__SafeParser__skip_0 "$hello"
+                                |> Expect.equal (Result.Ok "$hello")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "succeed"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                (SafeParser.succeed 90210)
+                                "mississippi"
+                                |> Expect.equal (Result.Ok 90210)
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run
+                                (SafeParser.succeed 3.141)
+                                "mississippi"
+                                |> Expect.equal (Result.Ok 3.141)
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run (SafeParser.succeed ()) "mississippi"
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    , Test.test
+                        "3"
+                        (\() ->
+                            SafeParser.run
+                                (SafeParser.succeed Maybe.Nothing)
+                                "mississippi"
+                                |> Expect.equal (Result.Ok Maybe.Nothing)
+                        )
+                    ]
+                ]
+            , Test.describe
+                "symbol"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run (SafeParser.symbol "[") "["
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run (SafeParser.symbol "[") "4"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { row = 1
+                                          , col = 1
+                                          , problem = Parser.ExpectingSymbol "["
+                                          }
+                                        ]
+                                    )
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run (SafeParser.symbol "") "whatever"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { row = 1
+                                          , col = 1
+                                          , problem =
+                                                Parser.Problem
+                                                    "The `symbol` parser cannot match an empty string"
+                                          }
+                                        ]
+                                    )
+                        )
+                    ]
+                ]
+            ]
         ]
 
 
@@ -78,3 +243,107 @@ zeroOrMoreDigits__Readme_1 =
 oneAlpha__Readme_1 : SafeParser.Parser alwaysChomps ()
 oneAlpha__Readme_1 =
     SafeParser.chompIf Char.isAlpha
+
+
+chompUpper__SafeParser__chompIf_0 : SafeParser.Parser alwaysChomps ()
+chompUpper__SafeParser__chompIf_0 =
+    SafeParser.chompIf Char.isUpper
+
+
+whitespace__SafeParser__chompWhile_0 : SafeParser.Parser SafeParser.MightNotChomp ()
+whitespace__SafeParser__chompWhile_0 =
+    SafeParser.chompWhile
+        (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
+
+
+elmVar__SafeParser__chompWhile_0 : SafeParser.Parser alwaysChomps String.String
+elmVar__SafeParser__chompWhile_0 =
+    SafeParser.succeed Basics.identity
+        |> SafeParser.keep (SafeParser.chompIf Char.isLower)
+        |> SafeParser.skip0
+            (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+        |> SafeParser.getChompedString
+
+
+php__SafeParser__getChompedString_0 : SafeParser.Parser alwaysChomps String.String
+php__SafeParser__getChompedString_0 =
+    SafeParser.succeed ()
+        |> SafeParser.skip (SafeParser.chompIf (\c -> c == '$'))
+        |> SafeParser.skip
+            (SafeParser.chompIf (\c -> Char.isAlpha c || c == '_'))
+        |> SafeParser.skip0
+            (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+        |> SafeParser.getChompedString
+
+
+type alias Point__SafeParser__keep_0 =
+    { x : Basics.Int, y : Basics.Int }
+
+
+int__SafeParser__keep_0 : SafeParser.Parser SafeParser.AlwaysChomps Basics.Int
+int__SafeParser__keep_0 =
+    SafeParser.succeed (++)
+        |> SafeParser.keep
+            (SafeParser.chompIf Char.isDigit |> SafeParser.getChompedString)
+        |> SafeParser.keep0
+            (SafeParser.chompWhile Char.isDigit |> SafeParser.getChompedString)
+        |> SafeParser.andThenChompsBefore
+            (\str ->
+                case String.toInt str of
+                    Maybe.Just n ->
+                        SafeParser.succeed n
+
+                    Maybe.Nothing ->
+                        SafeParser.problem "not an int"
+            )
+
+
+point__SafeParser__keep_0 : SafeParser.Parser SafeParser.AlwaysChomps Point__SafeParser__keep_0
+point__SafeParser__keep_0 =
+    SafeParser.succeed Point__SafeParser__keep_0
+        |> SafeParser.skip0 (SafeParser.symbol "(")
+        |> SafeParser.keep int__SafeParser__keep_0
+        |> SafeParser.skip0 (SafeParser.symbol ",")
+        |> SafeParser.keep int__SafeParser__keep_0
+        |> SafeParser.skip0 (SafeParser.symbol ")")
+
+
+type NullableBool__SafeParser__or_0
+    = Boolean__SafeParser__or_0 Basics.Bool
+    | Null__SafeParser__or_0
+
+
+nullableBool__SafeParser__or_0 : SafeParser.Parser alwaysChomps NullableBool__SafeParser__or_0
+nullableBool__SafeParser__or_0 =
+    SafeParser.map
+        (\_ -> Boolean__SafeParser__or_0 Basics.True)
+        (SafeParser.symbol "true")
+        |> SafeParser.or
+            (SafeParser.map
+                (\_ -> Boolean__SafeParser__or_0 Basics.False)
+                (SafeParser.symbol "false")
+            )
+        |> SafeParser.or
+            (SafeParser.map
+                (\_ -> Null__SafeParser__or_0)
+                (SafeParser.symbol "null")
+            )
+
+
+var__SafeParser__skip_0 : SafeParser.Parser alwaysChomps String.String
+var__SafeParser__skip_0 =
+    SafeParser.succeed ()
+        |> SafeParser.skip (SafeParser.chompIf isStartChar__SafeParser__skip_0)
+        |> SafeParser.skip0
+            (SafeParser.chompWhile isInnerChar__SafeParser__skip_0)
+        |> SafeParser.getChompedString
+
+
+isStartChar__SafeParser__skip_0 : Char.Char -> Basics.Bool
+isStartChar__SafeParser__skip_0 char =
+    Char.isAlpha char || char == '_' || char == '$'
+
+
+isInnerChar__SafeParser__skip_0 : Char.Char -> Basics.Bool
+isInnerChar__SafeParser__skip_0 char =
+    isStartChar__SafeParser__skip_0 char || Char.isDigit char
