@@ -13,73 +13,138 @@ distinguish between two types of parser that `elm/parser` provides:
    chomp zero or more characters, like `chompWhile`. We'll refer to these as
    **`MightNotChomp`** parsers.
 2. Parsers that are guaranteed to chomp at least one character, like `chompIf`.
-   We'll call these **`AlwaysChomp`** parsers.
+   We'll call these **`AlwaysChomps`** parsers.
 
 ## Problems and solutions
 
-1. With `elm-parser`, if you put a `MightNotChomp` parser into the list that you
-  pass to `oneOf`, then it's impossible for any subsequent parsers in the list
-  to run:
+### 1. Unreachable parsers
+
+With `elm-parser`, if you put a `MightNotChomp` parser into the list that you
+pass to `oneOf`, then it's impossible for any subsequent parsers in the list
+to run:
+
+```elm
+import Parser exposing (chompWhile, chompIf, oneOf, getChompedString, run)
+
+oops = 
+  oneOf 
+    [ chompWhile Char.isDigit 
+      -- `chompWhile` always succeeds, even if it 
+      -- can't chomp any characters...
+    , chompIf Char.isAlpha 
+      -- ... so we'll never reach this `chompIf`
+    ] 
+    |> getChompedString
+
+run oops "a" --> Ok ""
+```
+
+With this package, we replace `oneOf` with `or`, which gives us access to some
+funky phantom type magic. As a result, we can ensure at compile time that a
+`MightNotChomp` parser can only be used as the _last_ in a set of alternative
+parsers.
+
+Let's say we want to try each of these parsers:
+
+```elm
+import SafeParser exposing (Parser, MightNotChomp, chompWhile, chompIf, or)
+
+zeroOrMoreDigits : Parser MightNotChomp ()
+zeroOrMoreDigits = 
+  chompWhile Char.isDigit
+
+oneAlpha : Parser alwaysChomps ()
+oneAlpha = 
+  chompIf Char.isAlpha
+
+-- This is fine, because the MightNotChomp parser 
+-- comes last:
+
+oneAlpha
+  |> or zeroOrMoreDigits
+
+--: Parser MightNotChomp ()
+```
+
+But!
+
+```elm
+-- This will fail with a compiler error, 
+-- because we're trying to add more parsers 
+-- after a MightNotChomp parser:
+
+zeroOrMoreDigits
+  |> or oneAlpha
   
-  ```elm
-  import Parser exposing (chompWhile, chompIf, oneOf, getChompedString, run)
-  
-  oops = 
+--! TYPE ERROR
+```
+
+### 2. Infinite loops
+
+With `elm-parser`, if you put a parser that can succeed without chomping into
+a `loop`, then your parser can get stuck in an infinite loop.
+
+```elm
+import Parser exposing (Step(..), loop, oneOf, chompWhile, map)
+
+ohDear = 
+  loop () 
+    (\state -> 
     oneOf 
-      [ chompWhile Char.isDigit 
-        -- `chompWhile` always succeeds, even if it 
-        -- can't chomp any characters...
-      , chompIf Char.isAlpha 
-        -- ... so we'll never reach this `chompIf`
-      ] 
-      |> getChompedString
-  
-  run oops "a" --> Ok ""
-  ```
-  
-  With this package, we replace `oneOf` with `or`, which gives us access to some
-  funky phantom type magic. As a result, we can ensure at compile time that a
-  `MightNotChomp` parser can only be used as the _last_ in a set of alternative
-  parsers.
+        -- `chompWhile` always succeeds, and if it 
+        -- can't chomp anything, we'll fall into...
+        [ chompWhile Char.isDigit |> map Loop
+        ]
+    )
 
-  ```elm
-  import SafeParser exposing (Parser, MightNotChomp, chompWhile, chompIf, or)
-  
-  zeroOrMoreDigits = 
-    chompWhile Char.isDigit
-  
-  oneAlpha = 
-    chompIf Char.isAlpha
+run ohDear "!" -- ... an infinite loop!
+```
 
-  -- this is fine, because the MightNotChomp parser 
-  -- comes last:
+But with this package, we are forced to include an `AlwaysChomp` parser as the
+first alternative, and any parser that can `continue` the loop must also be
+`AlwaysChomp`. This means it's impossible to fall into an infinite loop (I
+think...)
 
-  oneAlpha
-    |> or zeroOrMoreDigits
-  
-  --: Parser MightNotChomp ()
-  ```
+So, this won't compile:
 
-  ```elm
-  -- but this fails with a compiler error:
-  
-  zeroOrMoreDigits
-    |> or oneAlpha
-    
-  -- type error
-  ```
-2. With `elm-parser`, if you put a parser that can succeed without chomping into
-  a `loop`, then your parser can get stuck in an infinite loop.
-  ```elm
-  ohDear = 
-    loop () 
-      (\state -> 
-        oneOf 
-          [ chompWhile Char.isDigit |> map Loop
-          -- `chompWhile` always succeeds, and if it 
-          -- can't chomp anything, we'll fall into...
-          ]
-      )
-  
-  run ohDear "!" -- ... an infinite loop!
-  ```
+```elm
+import SafeParser exposing (Parser, MightNotChomp, loop, chompWhile, continue, done, succeed)
+
+loop 
+  { initialState = ()
+  , firstCallback = 
+    \state -> 
+      -- `chompWhile` is a `MightNotChomp` parser, 
+      -- so it can't be passed to `continue`.
+      chompWhile Char.isDigit 
+        |> continue
+  , restCallbacks = 
+    \state -> 
+      succeed ()
+        |> done
+  }
+
+--! TYPE ERROR
+```
+
+But this is ok:
+
+```elm
+import SafeParser exposing (Parser, MightNotChomp, loop, chompWhile, chompIf, continue, done, succeed)
+
+loop 
+  { initialState = ()
+  , firstCallback = 
+    \state -> 
+      -- `chompIf` is an `AlwaysChomps` parser, 
+      -- so it's fine here
+      chompIf Char.isDigit 
+        |> continue
+  , restCallbacks = 
+    \state -> 
+      succeed ()
+        |> done
+  }
+
+--: Parser MightNotChomp ()
+```

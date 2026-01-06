@@ -38,6 +38,29 @@ tests =
                         Expect.pass
                     )
                 ]
+            , Test.describe
+                "code snippet 2"
+                [ Test.test
+                    "0"
+                    (\() ->
+                        let
+                            unused : SafeParser.Parser SafeParser.MightNotChomp ()
+                            unused =
+                                SafeParser.loop
+                                    { initialState = ()
+                                    , firstCallback =
+                                        \state ->
+                                            SafeParser.chompIf Char.isDigit
+                                                |> SafeParser.continue
+                                    , restCallbacks =
+                                        \state ->
+                                            SafeParser.succeed ()
+                                                |> SafeParser.done
+                                    }
+                        in
+                        Expect.pass
+                    )
+                ]
             ]
         ]
 
@@ -47,9 +70,11 @@ oops__Readme_0 =
         |> Parser.getChompedString
 
 
+zeroOrMoreDigits__Readme_1 : SafeParser.Parser SafeParser.MightNotChomp ()
 zeroOrMoreDigits__Readme_1 =
     SafeParser.chompWhile Char.isDigit
 
 
+oneAlpha__Readme_1 : SafeParser.Parser alwaysChomps ()
 oneAlpha__Readme_1 =
     SafeParser.chompIf Char.isAlpha

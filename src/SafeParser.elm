@@ -6,7 +6,7 @@ module SafeParser exposing
     , keep, keep0, skip, skip0
     , or, backtrackable
     , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
-    , Step, loop, continue, done
+    , Step, continue, done, loop
     )
 
 {-|
@@ -49,7 +49,7 @@ module SafeParser exposing
 
 ## Looping parsers
 
-@docs Step, loop, continue, done
+@docs Step, continue, done, loop
 
 -}
 
@@ -326,39 +326,46 @@ implAndThen f (P p) =
 -}
 
 
-{-| todo
+{-| Instead of directly exposing the `elm/parser` constructors for `Step`
+(`Loop` and `Done`), we provide two functions, `continue` and `done` that are
+equivalent to `map Loop` and `map Done`.
 -}
 type alias Step state a =
     ElmParser.Step state a
 
 
-{-| todo
+{-| Ensure that any parser that is going to continue looping is always going to
+chomp something if it succeeds. This makes it impossible to fall into infinite
+loops.
 -}
-continue : Parser any state -> Parser any (Step state a)
-continue =
-    map ElmParser.Loop
+continue : Parser AlwaysChomps state -> Parser any (Step state a)
+continue (P p) =
+    P (ElmParser.map ElmParser.Loop p)
 
 
-{-| todo
+{-| For parsers that end a loop, it doesn't matter if they chomp or not - either
+way, there's no risk of an infinite loop. So you can pass any parser to `done`.
 -}
 done : Parser any a -> Parser any (Step state a)
 done =
     map ElmParser.Done
 
 
-{-| The first callback must always chomp - if it didn't, then:
+{-| The first callback for `loop` must always chomp - if it didn't, then:
 
-  - Either it would be a non-chomping `Done`, in which case there's no need to use
-    `loop` at all.
+  - Either it would be a non-chomping `Done`, in which case there's no need to
+    use `loop` at all (it will always succeed, so you'd be better off just using
+    the parser on its own without putting it in a `loop`)
 
-  - Or it would be a non-chomping `Loop`, in which case we'd fall into an infinite
-    loop.
+  - Or it would be a non-chomping `Loop`, in which case we'd immediately fall
+    into an infinite loop.
 
-Subsequent callbacks might or might not chomp. If they are `MightNotChomp`, then
-the whole `loop` will be classified as `MightNotChomp`. (This is important to
-ensure that if we pass this `loop` into _another_ `loop`, we won't end up with
-an infinite loop.)
+Subsequent callbacks that continue looping must also be `AlwaysChomps`, but if
+they end the loop, then it's ok for them to be `MightNotChomp`.
 
+If they are `MightNotChomp`, then the whole `loop` will be classified as
+`MightNotChomp`. This is important to ensure that if we pass this `loop` into
+_another_ `loop`, we won't end up with an infinite loop.
 -}
 loop :
     { initialState : state
