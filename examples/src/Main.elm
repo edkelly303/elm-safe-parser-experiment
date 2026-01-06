@@ -11,14 +11,14 @@ import Html.Events exposing (onClick, onInput)
 import Parser
 import SafeParser
     exposing
-        ( --MightFail
+        ( --OneOrMore
           --,
-          AlwaysSucceeds
+          ZeroOrMore
         , Parser
           --, Step
-          --, andThenChompsAfter
-        , andThenChompsBefore
-        , andThenMightNotChomp
+          --, andThen01
+        , andThen10
+        , andThen00
           --, backtrackable
         , chompIf
         , chompWhile
@@ -46,12 +46,12 @@ type alias Phone =
     }
 
 
-whitespace : Parser AlwaysSucceeds ()
+whitespace : Parser ZeroOrMore ()
 whitespace =
     chompWhile (\c -> c == ' ')
 
 
-countryCode : Parser AlwaysSucceeds (Maybe Int)
+countryCode : Parser ZeroOrMore (Maybe Int)
 countryCode =
     let
         justValidCountryCode =
@@ -68,12 +68,12 @@ countryCode =
         |> or nothing
 
 
-int : Parser mightFail Int
+int : Parser oneOrMore Int
 int =
     succeed (\first rest -> first ++ rest)
         |> keep (chompIf Char.isDigit |> getChompedString)
         |> keep0 (chompWhile Char.isDigit |> getChompedString)
-        |> andThenChompsBefore
+        |> andThen10
             (\str ->
                 case String.toInt str of
                     Just n ->
@@ -84,7 +84,7 @@ int =
             )
 
 
-areaCode : Parser AlwaysSucceeds (Maybe Int)
+areaCode : Parser ZeroOrMore (Maybe Int)
 areaCode =
     let
         justValidAreaCode =
@@ -103,7 +103,7 @@ areaCode =
         |> or nothing
 
 
-localNumberString : Parser AlwaysSucceeds String
+localNumberString : Parser ZeroOrMore String
 localNumberString =
     let
         chompDigit state =
@@ -136,7 +136,7 @@ localNumberString =
         }
 
 
-localNumber : Parser AlwaysSucceeds Int
+localNumber : Parser ZeroOrMore Int
 localNumber =
     let
         checkDigits s =
@@ -147,9 +147,9 @@ localNumber =
                 problem "A NZ phone number has 7 digits"
     in
     localNumberString
-        |> andThenMightNotChomp checkDigits
+        |> andThen00 checkDigits
         |> map String.toInt
-        |> andThenMightNotChomp
+        |> andThen00
             (\maybe ->
                 case maybe of
                     Just n ->
@@ -160,7 +160,7 @@ localNumber =
             )
 
 
-phoneParser : Parser AlwaysSucceeds Phone
+phoneParser : Parser ZeroOrMore Phone
 phoneParser =
     succeed
         Phone

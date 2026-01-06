@@ -1,13 +1,13 @@
 module SafeParser exposing
     ( Parser, run
-    , MightFail, chompIf, chompWhile, getChompedString
+    , ZeroOrMore, chompIf, chompWhile, getChompedString
     , symbol
     , succeed, problem
     , keep, keep0, skip, skip0
     , or, backtrackable
-    , map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
+    , map, andThen00, andThen10, andThen01
     , Step, continue, done, loop
-    , AlwaysSucceeds
+    , OneOrMore
     )
 
 {-|
@@ -20,7 +20,7 @@ module SafeParser exposing
 
 ## Chomping inputs
 
-@docs MightFail, AlwaysSucceeds, chompIf, chompWhile, getChompedString
+@docs OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
 
 
 ## Generally useful parsers
@@ -45,7 +45,7 @@ module SafeParser exposing
 
 ## Transforming parsers
 
-@docs map, andThenMightNotChomp, andThenChompsBefore, andThenChompsAfter
+@docs map, andThen00, andThen10, andThen01
 
 
 ## Looping parsers
@@ -101,22 +101,22 @@ run (P p) string =
 {-| A phantom type indicating that a `Parser` is guaranteed to chomp at least
 one character when it succeeds.
 -}
-type MightFail
+type OneOrMore
     = AlwayChomps Never
 
 
 {-| A phantom type indicating that a `Parser` might succeed without chomping any
 characters.
 -}
-type AlwaysSucceeds
-    = AlwaysSucceeds Never
+type ZeroOrMore
+    = ZeroOrMore Never
 
 
 {-| Chomp one character if it passes the test.
 
     import SafeParser exposing (Parser, chompIf, run)
 
-    chompUpper : Parser mightFail ()
+    chompUpper : Parser oneOrMore ()
     chompUpper =
         chompIf Char.isUpper
 
@@ -125,7 +125,7 @@ type AlwaysSucceeds
 So this can chomp a character like `"T"` and produces a `()` value.
 
 -}
-chompIf : (Char -> Bool) -> Parser mightFail ()
+chompIf : (Char -> Bool) -> Parser oneOrMore ()
 chompIf test =
     P (ElmParser.chompIf test)
 
@@ -133,13 +133,13 @@ chompIf test =
 {-| Chomp zero or more characters if they pass the test. This is commonly
 useful for chomping whitespace or variable names:
 
-    import SafeParser exposing (Parser, AlwaysSucceeds, chompIf, chompWhile, getChompedString, succeed, keep, skip0, run)
+    import SafeParser exposing (Parser, ZeroOrMore, chompIf, chompWhile, getChompedString, succeed, keep, skip0, run)
 
-    whitespace : Parser AlwaysSucceeds ()
+    whitespace : Parser ZeroOrMore ()
     whitespace =
         chompWhile (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
 
-    elmVar : Parser mightFail String
+    elmVar : Parser oneOrMore String
     elmVar =
         succeed identity
             |> keep (chompIf Char.isLower)
@@ -151,7 +151,7 @@ useful for chomping whitespace or variable names:
 Note: a `chompWhile` parser always succeeds!
 
 -}
-chompWhile : (Char -> Bool) -> Parser AlwaysSucceeds ()
+chompWhile : (Char -> Bool) -> Parser ZeroOrMore ()
 chompWhile test =
     P (ElmParser.chompWhile test)
 
@@ -162,7 +162,7 @@ valid PHP variables like $x and $txt:
 
     import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip, skip0, run)
 
-    php : Parser mightFail String
+    php : Parser oneOrMore String
     php =
         succeed ()
             |> skip (chompIf (\c -> c == '$'))
@@ -249,7 +249,7 @@ Seems weird on its own, but it is very useful in combination with other
 functions. The docs for `keep` and `andThen` have some neat examples.
 
 -}
-succeed : a -> Parser AlwaysSucceeds a
+succeed : a -> Parser ZeroOrMore a
 succeed a =
     P (ElmParser.succeed a)
 
@@ -258,7 +258,7 @@ succeed a =
 until I ran into this problem." Check out the `andThen` docs to see an example
 usage.
 -}
-problem : String -> Parser AlwaysSucceeds a
+problem : String -> Parser ZeroOrMore a
 problem string =
     P (ElmParser.problem string)
 
@@ -278,12 +278,12 @@ problem string =
 
 {-| Keep values in a parser pipeline. For example, we could say:
 
-    import SafeParser exposing (MightFail, Parser, andThenChompsBefore, chompIf, chompWhile, getChompedString, keep, keep0, problem, skip0, succeed, symbol, run)
+    import SafeParser exposing (OneOrMore, Parser, andThen10, chompIf, chompWhile, getChompedString, keep, keep0, problem, skip0, succeed, symbol, run)
 
     type alias Point =
         { x : Int, y : Int }
 
-    int : Parser MightFail Int
+    int : Parser OneOrMore Int
     int =
         succeed (++)
             |> keep
@@ -294,7 +294,7 @@ problem string =
                 (chompWhile Char.isDigit
                     |> getChompedString
                 )
-            |> andThenChompsBefore
+            |> andThen10
                 (\str ->
                     case String.toInt str of
                         Just n ->
@@ -304,7 +304,7 @@ problem string =
                             problem "not an int"
                 )
 
-    point : Parser MightFail Point
+    point : Parser OneOrMore Point
     point =
         succeed Point
             |> skip0 (symbol "(")
@@ -325,15 +325,15 @@ So in this case, we skip the `()` from `symbol "("`, we keep the `Int` from
 `int`, etc.
 
 -}
-keep : Parser MightFail a -> Parser any (a -> b) -> Parser mightFail b
+keep : Parser OneOrMore a -> Parser any (a -> b) -> Parser oneOrMore b
 keep =
     implKeep
 
 
 {-| See docs for [`keep`](#keep). The `keep0` version of this function must be
-used if you want to keep the value from a `AlwaysSucceeds` parser.
+used if you want to keep the value from a `ZeroOrMore` parser.
 -}
-keep0 : Parser AlwaysSucceeds a -> Parser any (a -> b) -> Parser any b
+keep0 : Parser ZeroOrMore a -> Parser any (a -> b) -> Parser any b
 keep0 =
     implKeep
 
@@ -348,7 +348,7 @@ JavaScript variables:
 
     import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip, skip0, run)
 
-    var : Parser mightFail String
+    var : Parser oneOrMore String
     var =
         succeed ()
             |> skip (chompIf isStartChar)
@@ -372,15 +372,15 @@ characters, but skip the two `()` values that get produced. No one cares about
 them.
 
 -}
-skip : Parser MightFail skip -> Parser any keep -> Parser mightFail keep
+skip : Parser OneOrMore skip -> Parser any keep -> Parser oneOrMore keep
 skip =
     implSkip
 
 
 {-| See docs for [`skip`](#skip). The `skip0` version of this function must be
-used if you want to skip the value produced by a `AlwaysSucceeds` parser.
+used if you want to skip the value produced by a `ZeroOrMore` parser.
 -}
-skip0 : Parser AlwaysSucceeds skip -> Parser any keep -> Parser any keep
+skip0 : Parser ZeroOrMore skip -> Parser any keep -> Parser any keep
 skip0 =
     implSkip
 
@@ -412,7 +412,7 @@ with the first one that succeeds.
         = Boolean Bool
         | Null
 
-    nullableBool : Parser mightFail NullableBool
+    nullableBool : Parser oneOrMore NullableBool
     nullableBool =
         (map (\_ -> Boolean True) (symbol "true"))
             |> or (map (\_ -> Boolean False) (symbol "false"))
@@ -422,7 +422,7 @@ with the first one that succeeds.
     run nullableBool "null" --> Ok (Null)
 
 -}
-or : Parser any a -> Parser MightFail a -> Parser any a
+or : Parser any a -> Parser OneOrMore a -> Parser any a
 or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
 
@@ -456,31 +456,31 @@ map f (P p) =
 
 {-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
 
-This version of `andThen` is used when the initial and resulting parsers are both `AlwaysSucceeds`.
+`andThen00` is used when the initial and resulting parsers are both `ZeroOrMore`.
 
 -}
-andThenMightNotChomp : (a -> Parser AlwaysSucceeds b) -> Parser AlwaysSucceeds a -> Parser AlwaysSucceeds b
-andThenMightNotChomp =
+andThen00 : (a -> Parser ZeroOrMore b) -> Parser ZeroOrMore a -> Parser ZeroOrMore b
+andThen00 =
     implAndThen
 
 
 {-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
 
-This version of `andThen` is used when the initial parser is `MightFail`.
+`andThen10` is used when the initial parser is `OneOrMore`.
 
 -}
-andThenChompsBefore : (a -> Parser any b) -> Parser MightFail a -> Parser mightFail b
-andThenChompsBefore =
+andThen10 : (a -> Parser any b) -> Parser OneOrMore a -> Parser oneOrMore b
+andThen10 =
     implAndThen
 
 
 {-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
 
-This version of `andThen` is used when the resulting parser is `MightFail`.
+`andThen01` is used when the resulting parser is `OneOrMore`.
 
 -}
-andThenChompsAfter : (a -> Parser MightFail b) -> Parser any a -> Parser mightFail b
-andThenChompsAfter =
+andThen01 : (a -> Parser OneOrMore b) -> Parser any a -> Parser oneOrMore b
+andThen01 =
     implAndThen
 
 
@@ -522,7 +522,7 @@ type alias Step state a =
 chomp something if it succeeds. This makes it impossible to fall into infinite
 loops.
 -}
-continue : Parser MightFail state -> Parser any (Step state a)
+continue : Parser OneOrMore state -> Parser any (Step state a)
 continue (P p) =
     P (ElmParser.map ElmParser.Loop p)
 
@@ -544,17 +544,17 @@ done =
   - Or it would be a non-chomping `Loop`, in which case we'd immediately fall
     into an infinite loop.
 
-Subsequent callbacks that continue looping must also be `MightFail`, but if
-they end the loop, then it's ok for them to be `AlwaysSucceeds`.
+Subsequent callbacks that continue looping must also be `OneOrMore`, but if
+they end the loop, then it's ok for them to be `ZeroOrMore`.
 
-If they are `AlwaysSucceeds`, then the whole `loop` will be classified as
-`AlwaysSucceeds`. This is important to ensure that if we pass this `loop` into
+If they are `ZeroOrMore`, then the whole `loop` will be classified as
+`ZeroOrMore`. This is important to ensure that if we pass this `loop` into
 _another_ `loop`, we won't end up with an infinite loop.
 
 -}
 loop :
     { initialState : state
-    , firstCallback : state -> Parser MightFail (Step state a)
+    , firstCallback : state -> Parser OneOrMore (Step state a)
     , restCallbacks : state -> Parser any (Step state a)
     }
     -> Parser any a

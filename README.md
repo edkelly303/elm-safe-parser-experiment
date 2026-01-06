@@ -11,16 +11,16 @@ distinguish between two types of parser that `elm/parser` provides:
 1. Parsers that always succeed, regardless of the input they are given. Examples
    include `succeed` (which never chomps any characters) and `chompWhile` (which
    can chomp zero or more characters). We'll refer to these as
-   **`AlwaysSucceeds`** parsers.
-2. Parsers that may fail on some inputs. If they succeed, they always chomp at
-   least one character. Examples include `chompIf`. We'll call these
-   **`MightFail`** parsers.
+   **`ZeroOrMore`** parsers.
+2. Parsers that may fail on some inputs. If they succeed, they always chomp one
+   or more characters. Examples include `chompIf`. We'll call these
+   **`OneOrMore`** parsers.
 
 ## Problems and solutions
 
 ### 1. Unreachable parsers
 
-With `elm-parser`, if you put a `AlwaysSucceeds` parser into the list that you
+With `elm-parser`, if you put a `ZeroOrMore` parser into the list that you
 pass to `oneOf`, then it's impossible for any subsequent parsers in the list
 to run:
 
@@ -41,35 +41,37 @@ run oops "a" --> Ok ""
 ```
 
 The problem isn't just that this feels a bit counterintuitive, it's that your
-code is now bloated and confusing. You might as well delete every item in the
-list after the `chompWhile`, because they are all unreachable. But it's very
-hard to spot the problem just by looking at the code.
+code is now actively misleading. If the parser actually gives you the behaviour
+you want, then you should delete every item in the list after the `chompWhile`,
+because they are all unreachable. If you don't, it's very hard for a reader to
+figure out why this parser isn't doing what it looks like it should be doing
+just by looking at the code.
 
-With this package, we replace `oneOf` with `or`, which gives us access to some
-funky phantom type magic. As a result, we can ensure at compile time that a
-`AlwaysSucceeds` parser can only be used as the _last_ in a set of alternative
+So, with this package, we replace `oneOf` with `or`, which gives us access to
+some funky phantom type magic. As a result, we can ensure at compile time that a
+`ZeroOrMore` parser can only be used as the _last_ in a set of alternative
 parsers. This prevents you from accidentally creating unreachable parsers.
 
 Let's say we want to try each of these parsers:
 
 ```elm
-import SafeParser exposing (Parser, AlwaysSucceeds, chompWhile, chompIf, or)
+import SafeParser exposing (Parser, ZeroOrMore, chompWhile, chompIf, or)
 
-zeroOrMoreDigits : Parser AlwaysSucceeds ()
+zeroOrMoreDigits : Parser ZeroOrMore ()
 zeroOrMoreDigits = 
   chompWhile Char.isDigit
 
-oneAlpha : Parser mightFail ()
+oneAlpha : Parser oneOrMore ()
 oneAlpha = 
   chompIf Char.isAlpha
 
--- This is fine, because the AlwaysSucceeds parser 
+-- This is fine, because the ZeroOrMore parser 
 -- comes last:
 
 oneAlpha
   |> or zeroOrMoreDigits
 
---: Parser AlwaysSucceeds ()
+--: Parser ZeroOrMore ()
 ```
 
 But!
@@ -77,7 +79,7 @@ But!
 ```elm
 -- This will fail with a compiler error, 
 -- because we're trying to add more parsers 
--- after a AlwaysSucceeds parser:
+-- after a ZeroOrMore parser:
 
 zeroOrMoreDigits
   |> or oneAlpha
@@ -107,22 +109,22 @@ ohDear =
 run ohDear "!" --! ... an infinite loop!
 ```
 
-With this package, we are forced to include a `MightFail` parser as the first
+With this package, we are forced to include a `OneOrMore` parser as the first
 alternative, and any parser that can `continue` the loop must also be
-`MightFail`. This means it's impossible to fall into an infinite loop (I
+`OneOrMore`. This means it's impossible to fall into an infinite loop (I
 think...)
 
 So, this won't compile:
 
 ```elm
-import SafeParser exposing (Parser, AlwaysSucceeds, loop, chompWhile, continue, done, succeed)
+import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, continue, done, succeed)
 
 ohNo = 
   loop 
     { initialState = ()
     , firstCallback = 
       \state -> 
-        -- `chompWhile` is a `AlwaysSucceeds` parser, 
+        -- `chompWhile` is a `ZeroOrMore` parser, 
         -- so it can't be passed to `continue`.
         chompWhile Char.isDigit 
           |> continue
@@ -138,14 +140,14 @@ ohNo =
 But this is ok:
 
 ```elm
-import SafeParser exposing (Parser, AlwaysSucceeds, loop, chompWhile, chompIf, continue, done, succeed, run)
+import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, chompIf, continue, done, succeed, run)
 
 ohYeah = 
   loop 
     { initialState = ()
     , firstCallback = 
       \state -> 
-        -- `chompIf` is an `MightFail` parser, 
+        -- `chompIf` is an `OneOrMore` parser, 
         -- so we have a guarantee that we will only continue
         -- looping if we've actually chomped something.
         chompIf Char.isDigit 
