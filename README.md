@@ -106,9 +106,9 @@ ohDear =
 run ohDear "!" -- ... an infinite loop!
 ```
 
-With this package, we are forced to include an `AlwaysChomp` parser as the
+With this package, we are forced to include an `AlwaysChomps` parser as the
 first alternative, and any parser that can `continue` the loop must also be
-`AlwaysChomp`. This means it's impossible to fall into an infinite loop (I
+`AlwaysChomps`. This means it's impossible to fall into an infinite loop (I
 think...)
 
 So, this won't compile:
