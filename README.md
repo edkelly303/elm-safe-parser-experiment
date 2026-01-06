@@ -103,7 +103,7 @@ ohDear =
         ]
     )
 
-run ohDear "!" -- ... an infinite loop!
+run ohDear "!" --! ... an infinite loop!
 ```
 
 With this package, we are forced to include an `AlwaysChomps` parser as the
@@ -116,19 +116,20 @@ So, this won't compile:
 ```elm
 import SafeParser exposing (Parser, MightNotChomp, loop, chompWhile, continue, done, succeed)
 
-loop 
-  { initialState = ()
-  , firstCallback = 
-    \state -> 
-      -- `chompWhile` is a `MightNotChomp` parser, 
-      -- so it can't be passed to `continue`.
-      chompWhile Char.isDigit 
-        |> continue
-  , restCallbacks = 
-    \state -> 
-      succeed ()
-        |> done
-  }
+ohNo = 
+  loop 
+    { initialState = ()
+    , firstCallback = 
+      \state -> 
+        -- `chompWhile` is a `MightNotChomp` parser, 
+        -- so it can't be passed to `continue`.
+        chompWhile Char.isDigit 
+          |> continue
+    , restCallbacks = 
+      \state -> 
+        succeed ()
+          |> done
+    }
 
 --! TYPE ERROR
 ```
@@ -136,22 +137,23 @@ loop
 But this is ok:
 
 ```elm
-import SafeParser exposing (Parser, MightNotChomp, loop, chompWhile, chompIf, continue, done, succeed)
+import SafeParser exposing (Parser, MightNotChomp, loop, chompWhile, chompIf, continue, done, succeed, run)
 
-loop 
-  { initialState = ()
-  , firstCallback = 
-    \state -> 
-      -- `chompIf` is an `AlwaysChomps` parser, 
-      -- so we have a guarantee that we will only continue
-      -- looping if we've actually chomped something.
-      chompIf Char.isDigit 
-        |> continue
-  , restCallbacks = 
-    \state -> 
-      succeed ()
-        |> done
-  }
+ohYeah = 
+  loop 
+    { initialState = ()
+    , firstCallback = 
+      \state -> 
+        -- `chompIf` is an `AlwaysChomps` parser, 
+        -- so we have a guarantee that we will only continue
+        -- looping if we've actually chomped something.
+        chompIf Char.isDigit 
+          |> continue
+    , restCallbacks = 
+      \state -> 
+        succeed ()
+          |> done
+    }
 
---: Parser MightNotChomp ()
+run ohYeah "1234" --> Ok ()
 ```

@@ -43,22 +43,8 @@ tests =
                 [ Test.test
                     "0"
                     (\() ->
-                        let
-                            unused : SafeParser.Parser SafeParser.MightNotChomp ()
-                            unused =
-                                SafeParser.loop
-                                    { initialState = ()
-                                    , firstCallback =
-                                        \state ->
-                                            SafeParser.chompIf Char.isDigit
-                                                |> SafeParser.continue
-                                    , restCallbacks =
-                                        \state ->
-                                            SafeParser.succeed ()
-                                                |> SafeParser.done
-                                    }
-                        in
-                        Expect.pass
+                        SafeParser.run ohYeah__Readme_2 "1234"
+                            |> Expect.equal (Result.Ok ())
                     )
                 ]
             ]
@@ -243,6 +229,15 @@ zeroOrMoreDigits__Readme_1 =
 oneAlpha__Readme_1 : SafeParser.Parser alwaysChomps ()
 oneAlpha__Readme_1 =
     SafeParser.chompIf Char.isAlpha
+
+
+ohYeah__Readme_2 =
+    SafeParser.loop
+        { initialState = ()
+        , firstCallback =
+            \state -> SafeParser.chompIf Char.isDigit |> SafeParser.continue
+        , restCallbacks = \state -> SafeParser.succeed () |> SafeParser.done
+        }
 
 
 chompUpper__SafeParser__chompIf_0 : SafeParser.Parser alwaysChomps ()
