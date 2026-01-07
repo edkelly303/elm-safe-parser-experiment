@@ -275,7 +275,9 @@ problem string =
 -}
 
 
-{-| Keep values in a parser pipeline. For example, we could say:
+{-| Keep values produced by a `OneOrMore` parser in a parser pipeline.
+
+For example, we could say:
 
     import SafeParser exposing (OneOrMore, Parser, andThen10, chompIf, chompWhile, getChompedString, keep1, keep0, problem, skip0, succeed, symbol, run)
 
@@ -329,8 +331,10 @@ keep1 =
     implKeep
 
 
-{-| See docs for [`keep1`](#keep1). The `keep0` version of this function must be
-used if you want to keep the value from a `ZeroOrMore` parser.
+{-| Keep values produced by a `ZeroOrMore` parser in a parser pipeline.
+
+See docs for [`keep1`](#keep1).
+
 -}
 keep0 : Parser ZeroOrMore a -> Parser any (a -> b) -> Parser any b
 keep0 =
@@ -342,8 +346,9 @@ implKeep (P x) (P f) =
     P (f |= x)
 
 
-{-| Skip values in a parser pipeline. For example, maybe we want to parse some
-JavaScript variables:
+{-| Skip values produced by a `OneOrMore` parser in a parser pipeline.
+
+For example, maybe we want to parse some JavaScript variables:
 
     import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip1, skip0, run)
 
@@ -376,8 +381,10 @@ skip1 =
     implSkip
 
 
-{-| See docs for [`skip1`](#skip1). The `skip0` version of this function must be
-used if you want to skip the value produced by a `ZeroOrMore` parser.
+{-| Skip values produced by a `ZeroOrMore` parser in a parser pipeline.
+
+See docs for [`skip1`](#skip1).
+
 -}
 skip0 : Parser ZeroOrMore skip -> Parser any keep -> Parser any keep
 skip0 =
@@ -405,6 +412,10 @@ implSkip (P skipper) (P keeper) =
 {-| Use this instead of `elm/parser`'s `oneOf` to try a bunch of parsers and go
 with the first one that succeeds.
 
+Only the _last_ parser passed to a pipeline of `or`s can be a `ZeroOrMore`
+parser. This prevents you from accidentally creating pipelines where some of the
+parsers are unreachable.
+
     import SafeParser exposing (Parser, or, map, symbol, run)
 
     type NullableBool
@@ -426,7 +437,9 @@ or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
 
 
-{-| Like [`elm/parser`'s `backtrackable`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#backtrackable) - go read those docs!
+{-| Like [`elm/parser`'s
+`backtrackable`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#backtrackable).Go
+read those docs!
 -}
 backtrackable : Parser any a -> Parser any a
 backtrackable (P p) =
@@ -446,16 +459,23 @@ backtrackable (P p) =
 -}
 
 
-{-| Like [`elm/parser`'s `map`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#map) - go read those docs!
+{-| Like [`elm/parser`'s
+`map`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#map). Go
+read those docs!
 -}
 map : (a -> b) -> Parser any a -> Parser any b
 map f (P p) =
     P (ElmParser.map f p)
 
 
-{-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
+{-| Like [`elm/parser`'s
+`andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen).
+Go read those docs!
 
-`andThen00` is used when the initial and resulting parsers are both `ZeroOrMore`.
+`andThen00` is used when the parser returned by the callback in the first
+argument is `ZeroOrMore`, and the parser passed as the second argument is _also_
+`ZeroOrMore`. Since neither of these parsers is guaranteed to chomp any
+characters, `andThen00` returns a `ZeroOrMore` parser.
 
 -}
 andThen00 : (a -> Parser ZeroOrMore b) -> Parser ZeroOrMore a -> Parser ZeroOrMore b
@@ -463,9 +483,13 @@ andThen00 =
     implAndThen
 
 
-{-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
+{-| Like [`elm/parser`'s
+`andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen).
+Go read those docs!
 
-`andThen10` is used when the initial parser is `OneOrMore`.
+`andThen10` is used when the parser passed as the second argument is
+`OneOrMore`. This guarantees that if the parser succeeds, it must chomp one or
+more characters, so `andThen10` can return a `OneOrMore` parser.
 
 -}
 andThen10 : (a -> Parser any b) -> Parser OneOrMore a -> Parser oneOrMore b
@@ -473,9 +497,13 @@ andThen10 =
     implAndThen
 
 
-{-| Like [`elm/parser`'s `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen) - go read those docs!
+{-| Like [`elm/parser`'s
+`andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen).
+Go read those docs!
 
-`andThen01` is used when the resulting parser is `OneOrMore`.
+`andThen01` is used when the parser that results from the callback in the first
+argument is `OneOrMore`. This guarantees that if the parser succeeds, it must
+chomp one or more characters, so `andThen10` can return a `OneOrMore` parser.
 
 -}
 andThen01 : (a -> Parser OneOrMore b) -> Parser any a -> Parser oneOrMore b
@@ -534,40 +562,30 @@ done =
     map ElmParser.Done
 
 
-{-| The first callback for `loop` must always chomp - if it didn't, then:
+{-| Run the first callback with the initial state and if it succeeds, either
+continue the loop or return a value. If the first callback fails, run the second
+callback and either continue or return a value.
 
-  - Either it would be a non-chomping `Done`, in which case there's no need to
-    use `loop` at all (it will always succeed, so you'd be better off just using
-    the parser on its own without putting it in a `loop`)
+    import SafeParser exposing (loop, chompIf, continue, or, succeed, done, getChompedString, run)
 
-  - Or it would be a non-chomping `Loop`, in which case we'd immediately fall
-    into an infinite loop.
+    digits =
+        loop
+            ()
+            (\state ->
+                (chompIf Char.isDigit |> continue)
+                    |> or (succeed () |> done)
+            )
+            |> getChompedString
 
-Subsequent callbacks that continue looping must also be `OneOrMore`, but if
-they end the loop, then it's ok for them to be `ZeroOrMore`.
-
-If they are `ZeroOrMore`, then the whole `loop` will be classified as
-`ZeroOrMore`. This is important to ensure that if we pass this `loop` into
-_another_ `loop`, we won't end up with an infinite loop.
-
+    run digits "1234abc" --> Ok "1234"
 -}
 loop :
-    { initialState : state
-    , firstCallback : state -> Parser OneOrMore (Step state a)
-    , restCallbacks : state -> Parser any (Step state a)
-    }
+    state
+    -> (state -> Parser any (Step state a))
     -> Parser any a
-loop { initialState, firstCallback, restCallbacks } =
-    let
-        first state =
-            firstCallback state
-
-        rest state =
-            restCallbacks state
-
-        callback state =
-            first state
-                |> or (rest state)
-                |> (\(P p) -> p)
-    in
-    P (ElmParser.loop initialState callback)
+loop initialState callback =
+    P
+        (ElmParser.loop
+            initialState
+            (callback >> (\(P p) -> p))
+        )

@@ -125,16 +125,13 @@ localNumberString =
                 |> done
     in
     loop
-        { initialState = []
-        , firstCallback =
-            \state ->
+        []
+        
+            (\state ->
                 chompDigit state
-        , restCallbacks =
-            \state ->
-                chompSpace state
+                    |> or (chompSpace state)
                     |> or (reverseAndConcat state)
-        }
-
+        )
 
 localNumber : Parser ZeroOrMore Int
 localNumber =

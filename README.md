@@ -20,6 +20,8 @@ distinguish between two types of parser that `elm/parser` provides:
 
 ### 1. Unreachable parsers
 
+**The problem**
+
 With `elm-parser`, if you put a `ZeroOrMore` parser into the list that you
 pass to `oneOf`, then it's impossible for any subsequent parsers in the list
 to run:
@@ -46,6 +48,8 @@ long list of parsers, it may be almost impossible to tell at a glance which ones
 are reachable or unreachable. You would have to read the implementation of each
 parser in the list to understand why the `oneOf` isn't doing what it looks like
 it should be doing.
+
+**The solution**
 
 This package solves the problem by replacing `oneOf` with `or` - a new function
 which gives us access to some funky phantom type magic. With `or`, we can
@@ -90,6 +94,8 @@ zeroOrMoreDigits
 
 ### 2. Infinite loops
 
+**The problem**
+
 With `elm-parser`, if you put a parser that can succeed without chomping into a
 `loop`, then your parser can get stuck in an infinite loop. That is never what
 you want! Yet it's very easy to do by accident.
@@ -110,10 +116,10 @@ ohDear =
 run ohDear "!" --! ... an infinite loop!
 ```
 
-With this package, we are forced to include a `OneOrMore` parser as the first
-alternative, and any parser that can `continue` the loop must also be
-`OneOrMore`. This means it's impossible to fall into an infinite loop (I
-think...)
+**The solution**
+
+With this package, only a `OneOrMore` parser can be used to `continue` a loop.
+This means it's impossible to fall into an infinite loop (I think...)
 
 So, this won't compile:
 
@@ -122,18 +128,13 @@ import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, continue, done
 
 ohNo = 
   loop 
-    { initialState = ()
-    , firstCallback = 
-      \state -> 
+    ()
+    (\state -> 
         -- `chompWhile` is a `ZeroOrMore` parser, 
         -- so it can't be passed to `continue`.
-        chompWhile Char.isDigit 
-          |> continue
-    , restCallbacks = 
-      \state -> 
-        succeed ()
-          |> done
-    }
+        (chompWhile Char.isDigit |> continue)
+          |> or (succeed () |> done)
+    )
 
 --! TYPE ERROR
 ```
@@ -141,23 +142,16 @@ ohNo =
 But this is ok:
 
 ```elm
-import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, chompIf, continue, done, succeed, run)
+import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, chompIf, or, continue, done, succeed, run)
 
 ohYeah = 
   loop 
-    { initialState = ()
-    , firstCallback = 
-      \state -> 
-        -- `chompIf` is an `OneOrMore` parser, 
-        -- so we have a guarantee that we will only continue
-        -- looping if we've actually chomped something.
-        chompIf Char.isDigit 
-          |> continue
-    , restCallbacks = 
-      \state -> 
-        succeed ()
-          |> done
-    }
+    ()
+    (\state -> 
+        -- `chompIf` is a `OneOrMore` parser,
+        -- so it's fine to pass to `continue`.
+        (chompIf Char.isDigit |> continue) 
+          |> or (succeed () |> done))
 
 run ohYeah "1234" --> Ok ()
 ```

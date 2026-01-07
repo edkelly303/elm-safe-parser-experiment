@@ -105,6 +105,18 @@ tests =
                     ]
                 ]
             , Test.describe
+                "loop"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run digits__SafeParser__loop_0 "1234abc"
+                                |> Expect.equal (Result.Ok "1234")
+                        )
+                    ]
+                ]
+            , Test.describe
                 "or"
                 [ Test.describe
                     "code snippet 0"
@@ -235,11 +247,11 @@ oneAlpha__Readme_1 =
 
 ohYeah__Readme_2 =
     SafeParser.loop
-        { initialState = ()
-        , firstCallback =
-            \state -> SafeParser.chompIf Char.isDigit |> SafeParser.continue
-        , restCallbacks = \state -> SafeParser.succeed () |> SafeParser.done
-        }
+        ()
+        (\state ->
+            (SafeParser.chompIf Char.isDigit |> SafeParser.continue)
+                |> SafeParser.or (SafeParser.succeed () |> SafeParser.done)
+        )
 
 
 chompUpper__SafeParser__chompIf_0 : SafeParser.Parser oneOrMore ()
@@ -303,6 +315,16 @@ point__SafeParser__keep1_0 =
         |> SafeParser.skip0 (SafeParser.symbol ",")
         |> SafeParser.keep1 int__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol ")")
+
+
+digits__SafeParser__loop_0 =
+    SafeParser.loop
+        ()
+        (\state ->
+            (SafeParser.chompIf Char.isDigit |> SafeParser.continue)
+                |> SafeParser.or (SafeParser.succeed () |> SafeParser.done)
+        )
+        |> SafeParser.getChompedString
 
 
 type NullableBool__SafeParser__or_0
