@@ -40,17 +40,18 @@ oops =
 run oops "a" --> Ok ""
 ```
 
-The problem isn't just that this feels a bit counterintuitive, it's that your
-code is now actively misleading. If the parser actually gives you the behaviour
-you want, then you should delete every item in the list after the `chompWhile`,
-because they are all unreachable. If you don't, it's very hard for a reader to
-figure out why this parser isn't doing what it looks like it should be doing
-just by looking at the code.
+The problem isn't just that this feels a bit counterintuitive, it's that the
+code can become actively misleading. Especially in a `oneOf` that contains a
+long list of parsers, it may be almost impossible to tell at a glance which ones
+are reachable or unreachable. You would have to read the implementation of each
+parser in the list to understand why the `oneOf` isn't doing what it looks like
+it should be doing.
 
-So, with this package, we replace `oneOf` with `or`, which gives us access to
-some funky phantom type magic. As a result, we can ensure at compile time that a
-`ZeroOrMore` parser can only be used as the _last_ in a set of alternative
-parsers. This prevents you from accidentally creating unreachable parsers.
+This package solves the problem by replacing `oneOf` with `or` - a new function
+which gives us access to some funky phantom type magic. With `or`, we can
+ensure at compile time that a `ZeroOrMore` parser can only be used as the _last_
+in a set of alternative parsers. This prevents you from accidentally creating
+unreachable parsers.
 
 Let's say we want to try each of these parsers:
 

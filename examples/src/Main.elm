@@ -25,14 +25,14 @@ import SafeParser
         , continue
         , done
         , getChompedString
-        , keep
+        , keep1
         , keep0
         , loop
         , map
         , or
         , problem
         , run
-        , skip
+        , skip1
         , skip0
         , succeed
         , symbol
@@ -57,8 +57,8 @@ countryCode =
         justValidCountryCode =
             succeed Just
                 |> skip0 whitespace
-                |> skip (symbol "+")
-                |> keep int
+                |> skip1 (symbol "+")
+                |> keep1 int
                 |> skip0 whitespace
 
         nothing =
@@ -71,7 +71,7 @@ countryCode =
 int : Parser oneOrMore Int
 int =
     succeed (\first rest -> first ++ rest)
-        |> keep (chompIf Char.isDigit |> getChompedString)
+        |> keep1 (chompIf Char.isDigit |> getChompedString)
         |> keep0 (chompWhile Char.isDigit |> getChompedString)
         |> andThen10
             (\str ->
@@ -89,11 +89,11 @@ areaCode =
     let
         justValidAreaCode =
             succeed String.toInt
-                |> skip (symbol "(")
+                |> skip1 (symbol "(")
                 |> skip0 whitespace
                 |> keep0 (getChompedString <| chompWhile Char.isDigit)
                 |> skip0 whitespace
-                |> skip (symbol ")")
+                |> skip1 (symbol ")")
                 |> skip0 whitespace
 
         nothing =

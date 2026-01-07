@@ -1,13 +1,12 @@
 module SafeParser exposing
     ( Parser, run
-    , ZeroOrMore, chompIf, chompWhile, getChompedString
+    , OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
     , symbol
     , succeed, problem
-    , keep, keep0, skip, skip0
+    , keep1, keep0, skip1, skip0
     , or, backtrackable
     , map, andThen00, andThen10, andThen01
     , Step, continue, done, loop
-    , OneOrMore
     )
 
 {-|
@@ -35,7 +34,7 @@ module SafeParser exposing
 
 ## Combining parsers
 
-@docs keep, keep0, skip, skip0
+@docs keep1, keep0, skip1, skip0
 
 
 ## Choosing parsers
@@ -133,7 +132,7 @@ chompIf test =
 {-| Chomp zero or more characters if they pass the test. This is commonly
 useful for chomping whitespace or variable names:
 
-    import SafeParser exposing (Parser, ZeroOrMore, chompIf, chompWhile, getChompedString, succeed, keep, skip0, run)
+    import SafeParser exposing (Parser, ZeroOrMore, chompIf, chompWhile, getChompedString, succeed, keep1, skip0, run)
 
     whitespace : Parser ZeroOrMore ()
     whitespace =
@@ -142,7 +141,7 @@ useful for chomping whitespace or variable names:
     elmVar : Parser oneOrMore String
     elmVar =
         succeed identity
-            |> keep (chompIf Char.isLower)
+            |> keep1 (chompIf Char.isLower)
             |> skip0 (chompWhile (\c -> Char.isAlphaNum c || c == '_'))
             |> getChompedString
 
@@ -160,13 +159,13 @@ chompWhile test =
 "chomping" family of functions is meant for that case! Maybe you need to parse
 valid PHP variables like $x and $txt:
 
-    import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip, skip0, run)
+    import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip1, skip0, run)
 
     php : Parser oneOrMore String
     php =
         succeed ()
-            |> skip (chompIf (\c -> c == '$'))
-            |> skip (chompIf (\c -> Char.isAlpha c || c == '_'))
+            |> skip1 (chompIf (\c -> c == '$'))
+            |> skip1 (chompIf (\c -> Char.isAlpha c || c == '_'))
             |> skip0 (chompWhile (\c -> Char.isAlphaNum c || c == '_'))
             |> getChompedString
 
@@ -246,7 +245,7 @@ symbol str =
     run (succeed Nothing) "mississippi" --> Ok Nothing
 
 Seems weird on its own, but it is very useful in combination with other
-functions. The docs for `keep` and `andThen` have some neat examples.
+functions. The docs for `keep1` and `andThen` have some neat examples.
 
 -}
 succeed : a -> Parser ZeroOrMore a
@@ -278,7 +277,7 @@ problem string =
 
 {-| Keep values in a parser pipeline. For example, we could say:
 
-    import SafeParser exposing (OneOrMore, Parser, andThen10, chompIf, chompWhile, getChompedString, keep, keep0, problem, skip0, succeed, symbol, run)
+    import SafeParser exposing (OneOrMore, Parser, andThen10, chompIf, chompWhile, getChompedString, keep1, keep0, problem, skip0, succeed, symbol, run)
 
     type alias Point =
         { x : Int, y : Int }
@@ -286,7 +285,7 @@ problem string =
     int : Parser OneOrMore Int
     int =
         succeed (++)
-            |> keep
+            |> keep1
                 (chompIf Char.isDigit
                     |> getChompedString
                 )
@@ -308,9 +307,9 @@ problem string =
     point =
         succeed Point
             |> skip0 (symbol "(")
-            |> keep int
+            |> keep1 int
             |> skip0 (symbol ",")
-            |> keep int
+            |> keep1 int
             |> skip0 (symbol ")")
 
     run point "(123,456)" --> Ok { x = 123, y = 456 }
@@ -318,19 +317,19 @@ problem string =
 All the parsers in the `point` pipeline will chomp characters and produce
 values. So `symbol "("` will chomp one paren and produce a `()` value.
 Similarly, `int` will chomp some digits and produce an `Int` value. The
-`keep`/`keep0` and `skip`/`skip0` functions just decide whether we give the
+`keep1`/`keep0` and `skip1`/`skip0` functions just decide whether we give the
 values to the Point function.
 
 So in this case, we skip the `()` from `symbol "("`, we keep the `Int` from
 `int`, etc.
 
 -}
-keep : Parser OneOrMore a -> Parser any (a -> b) -> Parser oneOrMore b
-keep =
+keep1 : Parser OneOrMore a -> Parser any (a -> b) -> Parser oneOrMore b
+keep1 =
     implKeep
 
 
-{-| See docs for [`keep`](#keep). The `keep0` version of this function must be
+{-| See docs for [`keep1`](#keep1). The `keep0` version of this function must be
 used if you want to keep the value from a `ZeroOrMore` parser.
 -}
 keep0 : Parser ZeroOrMore a -> Parser any (a -> b) -> Parser any b
@@ -346,12 +345,12 @@ implKeep (P x) (P f) =
 {-| Skip values in a parser pipeline. For example, maybe we want to parse some
 JavaScript variables:
 
-    import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip, skip0, run)
+    import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip1, skip0, run)
 
     var : Parser oneOrMore String
     var =
         succeed ()
-            |> skip (chompIf isStartChar)
+            |> skip1 (chompIf isStartChar)
             |> skip0 (chompWhile isInnerChar)
             |> getChompedString
 
@@ -367,17 +366,17 @@ JavaScript variables:
 
 `chompIf isStartChar` can chomp one character and produce a `()` value.
 `chompWhile isInnerChar` can chomp zero or more characters and produce a `()`
-value. The `skip`/`skip0` functions are saying to still chomp all the
+value. The `skip1`/`skip0` functions are saying to still chomp all the
 characters, but skip the two `()` values that get produced. No one cares about
 them.
 
 -}
-skip : Parser OneOrMore skip -> Parser any keep -> Parser oneOrMore keep
-skip =
+skip1 : Parser OneOrMore skip -> Parser any keep -> Parser oneOrMore keep
+skip1 =
     implSkip
 
 
-{-| See docs for [`skip`](#skip). The `skip0` version of this function must be
+{-| See docs for [`skip1`](#skip1). The `skip0` version of this function must be
 used if you want to skip the value produced by a `ZeroOrMore` parser.
 -}
 skip0 : Parser ZeroOrMore skip -> Parser any keep -> Parser any keep

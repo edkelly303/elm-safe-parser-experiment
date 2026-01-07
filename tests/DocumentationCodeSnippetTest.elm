@@ -91,13 +91,15 @@ tests =
                     ]
                 ]
             , Test.describe
-                "keep"
+                "keep1"
                 [ Test.describe
                     "code snippet 0"
                     [ Test.test
                         "0"
                         (\() ->
-                            SafeParser.run point__SafeParser__keep_0 "(123,456)"
+                            SafeParser.run
+                                point__SafeParser__keep1_0
+                                "(123,456)"
                                 |> Expect.equal (Result.Ok { x = 123, y = 456 })
                         )
                     ]
@@ -125,13 +127,13 @@ tests =
                     ]
                 ]
             , Test.describe
-                "skip"
+                "skip1"
                 [ Test.describe
                     "code snippet 0"
                     [ Test.test
                         "0"
                         (\() ->
-                            SafeParser.run var__SafeParser__skip_0 "$hello"
+                            SafeParser.run var__SafeParser__skip1_0 "$hello"
                                 |> Expect.equal (Result.Ok "$hello")
                         )
                     ]
@@ -254,7 +256,7 @@ whitespace__SafeParser__chompWhile_0 =
 elmVar__SafeParser__chompWhile_0 : SafeParser.Parser oneOrMore String.String
 elmVar__SafeParser__chompWhile_0 =
     SafeParser.succeed Basics.identity
-        |> SafeParser.keep (SafeParser.chompIf Char.isLower)
+        |> SafeParser.keep1 (SafeParser.chompIf Char.isLower)
         |> SafeParser.skip0
             (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
         |> SafeParser.getChompedString
@@ -263,22 +265,22 @@ elmVar__SafeParser__chompWhile_0 =
 php__SafeParser__getChompedString_0 : SafeParser.Parser oneOrMore String.String
 php__SafeParser__getChompedString_0 =
     SafeParser.succeed ()
-        |> SafeParser.skip (SafeParser.chompIf (\c -> c == '$'))
-        |> SafeParser.skip
+        |> SafeParser.skip1 (SafeParser.chompIf (\c -> c == '$'))
+        |> SafeParser.skip1
             (SafeParser.chompIf (\c -> Char.isAlpha c || c == '_'))
         |> SafeParser.skip0
             (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
         |> SafeParser.getChompedString
 
 
-type alias Point__SafeParser__keep_0 =
+type alias Point__SafeParser__keep1_0 =
     { x : Basics.Int, y : Basics.Int }
 
 
-int__SafeParser__keep_0 : SafeParser.Parser SafeParser.OneOrMore Basics.Int
-int__SafeParser__keep_0 =
+int__SafeParser__keep1_0 : SafeParser.Parser SafeParser.OneOrMore Basics.Int
+int__SafeParser__keep1_0 =
     SafeParser.succeed (++)
-        |> SafeParser.keep
+        |> SafeParser.keep1
             (SafeParser.chompIf Char.isDigit |> SafeParser.getChompedString)
         |> SafeParser.keep0
             (SafeParser.chompWhile Char.isDigit |> SafeParser.getChompedString)
@@ -293,13 +295,13 @@ int__SafeParser__keep_0 =
             )
 
 
-point__SafeParser__keep_0 : SafeParser.Parser SafeParser.OneOrMore Point__SafeParser__keep_0
-point__SafeParser__keep_0 =
-    SafeParser.succeed Point__SafeParser__keep_0
+point__SafeParser__keep1_0 : SafeParser.Parser SafeParser.OneOrMore Point__SafeParser__keep1_0
+point__SafeParser__keep1_0 =
+    SafeParser.succeed Point__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol "(")
-        |> SafeParser.keep int__SafeParser__keep_0
+        |> SafeParser.keep1 int__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol ",")
-        |> SafeParser.keep int__SafeParser__keep_0
+        |> SafeParser.keep1 int__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol ")")
 
 
@@ -325,20 +327,21 @@ nullableBool__SafeParser__or_0 =
             )
 
 
-var__SafeParser__skip_0 : SafeParser.Parser oneOrMore String.String
-var__SafeParser__skip_0 =
+var__SafeParser__skip1_0 : SafeParser.Parser oneOrMore String.String
+var__SafeParser__skip1_0 =
     SafeParser.succeed ()
-        |> SafeParser.skip (SafeParser.chompIf isStartChar__SafeParser__skip_0)
+        |> SafeParser.skip1
+            (SafeParser.chompIf isStartChar__SafeParser__skip1_0)
         |> SafeParser.skip0
-            (SafeParser.chompWhile isInnerChar__SafeParser__skip_0)
+            (SafeParser.chompWhile isInnerChar__SafeParser__skip1_0)
         |> SafeParser.getChompedString
 
 
-isStartChar__SafeParser__skip_0 : Char.Char -> Basics.Bool
-isStartChar__SafeParser__skip_0 char =
+isStartChar__SafeParser__skip1_0 : Char.Char -> Basics.Bool
+isStartChar__SafeParser__skip1_0 char =
     Char.isAlpha char || char == '_' || char == '$'
 
 
-isInnerChar__SafeParser__skip_0 : Char.Char -> Basics.Bool
-isInnerChar__SafeParser__skip_0 char =
-    isStartChar__SafeParser__skip_0 char || Char.isDigit char
+isInnerChar__SafeParser__skip1_0 : Char.Char -> Basics.Bool
+isInnerChar__SafeParser__skip1_0 char =
+    isStartChar__SafeParser__skip1_0 char || Char.isDigit char
