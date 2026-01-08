@@ -101,7 +101,7 @@ run (P p) string =
 one character when it succeeds.
 -}
 type OneOrMore
-    = AlwayChomps Never
+    = OneOrMore Never
 
 
 {-| A phantom type indicating that a `Parser` might succeed without chomping any
@@ -211,7 +211,7 @@ getChompedString (P p) =
 fail if asked to match an empty string.
 
 -}
-symbol : String -> Parser alwayChomps ()
+symbol : String -> Parser oneOrMore ()
 symbol str =
     P
         (if String.isEmpty str then
