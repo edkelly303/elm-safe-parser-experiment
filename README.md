@@ -27,19 +27,19 @@ pass to `oneOf`, then it's impossible for any subsequent parsers in the list
 to run:
 
 ```elm
-import Parser exposing (chompWhile, chompIf, oneOf, getChompedString, run)
+import Parser as P
 
 oops = 
-  oneOf 
-    [ chompWhile Char.isDigit 
+  P.oneOf 
+    [ P.chompWhile Char.isDigit 
       -- `chompWhile` always succeeds, even if it 
       -- can't chomp any characters...
-    , chompIf Char.isAlpha 
+    , P.chompIf Char.isAlpha 
       -- ... so we'll never reach this `chompIf`
     ] 
-    |> getChompedString
+    |> P.getChompedString
 
-run oops "a" --> Ok ""
+P.run oops "a" --> Ok ""
 ```
 
 The problem isn't just that this feels a bit counterintuitive, it's that the
@@ -60,23 +60,23 @@ unreachable parsers.
 Let's say we want to try each of these parsers:
 
 ```elm
-import SafeParser exposing (Parser, ZeroOrMore, chompWhile, chompIf, or)
+import SafeParser as SP
 
-zeroOrMoreDigits : Parser ZeroOrMore ()
+zeroOrMoreDigits : SP.Parser SP.ZeroOrMore ()
 zeroOrMoreDigits = 
-  chompWhile Char.isDigit
+  SP.chompWhile Char.isDigit
 
-oneAlpha : Parser oneOrMore ()
+oneAlpha : SP.Parser oneOrMore ()
 oneAlpha = 
-  chompIf Char.isAlpha
+  SP.chompIf Char.isAlpha
 
 -- This is fine, because the ZeroOrMore parser 
 -- comes last:
 
 oneAlpha
-  |> or zeroOrMoreDigits
+  |> SP.or zeroOrMoreDigits
 
---: Parser ZeroOrMore ()
+--: SP.Parser SP.ZeroOrMore ()
 ```
 
 But!
@@ -87,7 +87,7 @@ But!
 -- after a ZeroOrMore parser:
 
 zeroOrMoreDigits
-  |> or oneAlpha
+  |> SP.or oneAlpha
   
 --! TYPE ERROR
 ```
@@ -101,19 +101,19 @@ With `elm-parser`, if you put a parser that can succeed without chomping into a
 you want! Yet it's very easy to do by accident.
 
 ```elm
-import Parser exposing (Step(..), loop, oneOf, chompWhile, map)
+import Parser as P
 
 ohDear = 
-  loop () 
+  P.loop () 
     (\state -> 
-    oneOf 
+    P.oneOf 
         -- `chompWhile` always succeeds, and if it 
         -- can't chomp anything, we'll fall into...
-        [ chompWhile Char.isDigit |> map Loop
+        [ P.chompWhile Char.isDigit |> map P.Loop
         ]
     )
 
-run ohDear "!" --! ... an infinite loop!
+P.run ohDear "!" --! ... an infinite loop!
 ```
 
 **The solution**
@@ -124,16 +124,16 @@ This means it's impossible to fall into an infinite loop (I think...)
 So, this won't compile:
 
 ```elm
-import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, continue, done, succeed)
+import SafeParser as SP
 
 ohNo = 
-  loop 
+  SP.loop 
     ()
     (\state -> 
         -- `chompWhile` is a `ZeroOrMore` parser, 
         -- so it can't be passed to `continue`.
-        (chompWhile Char.isDigit |> continue)
-          |> or (succeed () |> done)
+        (SP.chompWhile Char.isDigit |> SP.continue)
+          |> SP.or (SP.succeed () |> SP.done)
     )
 
 --! TYPE ERROR
@@ -142,16 +142,16 @@ ohNo =
 But this is ok:
 
 ```elm
-import SafeParser exposing (Parser, ZeroOrMore, loop, chompWhile, chompIf, or, continue, done, succeed, run)
+import SafeParser as SP
 
 ohYeah = 
-  loop 
+  SP.loop 
     ()
     (\state -> 
         -- `chompIf` is a `OneOrMore` parser,
         -- so it's fine to pass to `continue`.
-        (chompIf Char.isDigit |> continue) 
-          |> or (succeed () |> done))
+        (SP.chompIf Char.isDigit |> SP.continue) 
+          |> SP.or (SP.succeed () |> SP.done))
 
-run ohYeah "1234" --> Ok ()
+SP.run ohYeah "1234" --> Ok ()
 ```

@@ -113,13 +113,13 @@ type ZeroOrMore
 
 {-| Chomp one character if it passes the test.
 
-    import SafeParser exposing (Parser, chompIf, run)
+    import SafeParser as SP
 
-    chompUpper : Parser oneOrMore ()
+    chompUpper : SP.Parser oneOrMore ()
     chompUpper =
-        chompIf Char.isUpper
+        SP.chompIf Char.isUpper
 
-    run chompUpper "T" --> Ok ()
+    SP.run chompUpper "T" --> Ok ()
 
 So this can chomp a character like `"T"` and produces a `()` value.
 
@@ -132,20 +132,20 @@ chompIf test =
 {-| Chomp zero or more characters if they pass the test. This is commonly
 useful for chomping whitespace or variable names:
 
-    import SafeParser exposing (Parser, ZeroOrMore, chompIf, chompWhile, getChompedString, succeed, keep1, skip0, run)
+    import SafeParser as SP
 
-    whitespace : Parser ZeroOrMore ()
+    whitespace : SP.Parser SP.ZeroOrMore ()
     whitespace =
-        chompWhile (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
+        SP.chompWhile (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
 
-    elmVar : Parser oneOrMore String
+    elmVar : SP.Parser oneOrMore String
     elmVar =
-        succeed identity
-            |> keep1 (chompIf Char.isLower)
-            |> skip0 (chompWhile (\c -> Char.isAlphaNum c || c == '_'))
-            |> getChompedString
+        SP.succeed identity
+            |> SP.keep1 (SP.chompIf Char.isLower)
+            |> SP.skip0 (SP.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+            |> SP.getChompedString
 
-    run elmVar "helloWorld" --> Ok "helloWorld"
+    SP.run elmVar "helloWorld" --> Ok "helloWorld"
 
 Note: a `chompWhile` parser always succeeds!
 
@@ -159,17 +159,17 @@ chompWhile test =
 "chomping" family of functions is meant for that case! Maybe you need to parse
 valid PHP variables like $x and $txt:
 
-    import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip1, skip0, run)
+    import SafeParser as SP
 
-    php : Parser oneOrMore String
+    php : SP.Parser oneOrMore String
     php =
-        succeed ()
-            |> skip1 (chompIf (\c -> c == '$'))
-            |> skip1 (chompIf (\c -> Char.isAlpha c || c == '_'))
-            |> skip0 (chompWhile (\c -> Char.isAlphaNum c || c == '_'))
-            |> getChompedString
+        SP.succeed ()
+            |> SP.skip1 (SP.chompIf (\c -> c == '$'))
+            |> SP.skip1 (SP.chompIf (\c -> Char.isAlpha c || c == '_'))
+            |> SP.skip0 (SP.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+            |> SP.getChompedString
 
-    run php "$my_var" --> Ok "$my_var"
+    SP.run php "$my_var" --> Ok "$my_var"
 
 The idea is that you create a bunch of chompers that validate the underlying
 characters. Then getChompedString extracts the underlying String efficiently.
@@ -195,16 +195,16 @@ getChompedString (P p) =
 
 {-| Parse symbols like `(` and `,`.
 
-    import SafeParser exposing (symbol, run)
+    import SafeParser as SP
     import Parser
 
-    run (symbol "[") "["
+    SP.run (SP.symbol "[") "["
     --> Ok ()
 
-    run (symbol "[") "4"
+    SP.run (SP.symbol "[") "4"
     --> Err [ { row = 1, col = 1, problem = Parser.ExpectingSymbol "[" } ]
 
-    run (symbol "") "whatever"
+    SP.run (SP.symbol "") "whatever"
     --> Err [ { row = 1, col = 1, problem = Parser.Problem "The `symbol` parser cannot match an empty string" } ]
 
 **Note:** unlike the `elm/parser` version of this function, `symbol` will always
@@ -237,12 +237,12 @@ symbol str =
 
 {-| A parser that succeeds without chomping any characters.
 
-    import SafeParser exposing (run, succeed)
+    import SafeParser as SP
 
-    run (succeed 90210  ) "mississippi" --> Ok 90210
-    run (succeed 3.141  ) "mississippi" --> Ok 3.141
-    run (succeed ()     ) "mississippi" --> Ok ()
-    run (succeed Nothing) "mississippi" --> Ok Nothing
+    SP.run (SP.succeed 90210  ) "mississippi" --> Ok 90210
+    SP.run (SP.succeed 3.141  ) "mississippi" --> Ok 3.141
+    SP.run (SP.succeed ()     ) "mississippi" --> Ok ()
+    SP.run (SP.succeed Nothing) "mississippi" --> Ok Nothing
 
 Seems weird on its own, but it is very useful in combination with other
 functions. The docs for `keep1` and `andThen` have some neat examples.
@@ -279,42 +279,42 @@ problem string =
 
 For example, we could say:
 
-    import SafeParser exposing (OneOrMore, Parser, andThen10, chompIf, chompWhile, getChompedString, keep1, keep0, problem, skip0, succeed, symbol, run)
+    import SafeParser as SP
 
     type alias Point =
         { x : Int, y : Int }
 
-    int : Parser OneOrMore Int
+    int : SP.Parser SP.OneOrMore Int
     int =
-        succeed (++)
-            |> keep1
-                (chompIf Char.isDigit
-                    |> getChompedString
+        SP.succeed (++)
+            |> SP.keep1
+                (SP.chompIf Char.isDigit
+                    |> SP.getChompedString
                 )
-            |> keep0
-                (chompWhile Char.isDigit
-                    |> getChompedString
+            |> SP.keep0
+                (SP.chompWhile Char.isDigit
+                    |> SP.getChompedString
                 )
-            |> andThen10
+            |> SP.andThen10
                 (\str ->
                     case String.toInt str of
                         Just n ->
-                            succeed n
+                            SP.succeed n
 
                         Nothing ->
-                            problem "not an int"
+                            SP.problem "not an int"
                 )
 
-    point : Parser OneOrMore Point
+    point : SP.Parser SP.OneOrMore Point
     point =
-        succeed Point
-            |> skip0 (symbol "(")
-            |> keep1 int
-            |> skip0 (symbol ",")
-            |> keep1 int
-            |> skip0 (symbol ")")
+        SP.succeed Point
+            |> SP.skip0 (SP.symbol "(")
+            |> SP.keep1 int
+            |> SP.skip0 (SP.symbol ",")
+            |> SP.keep1 int
+            |> SP.skip0 (SP.symbol ")")
 
-    run point "(123,456)" --> Ok { x = 123, y = 456 }
+    SP.run point "(123,456)" --> Ok { x = 123, y = 456 }
 
 All the parsers in the `point` pipeline will chomp characters and produce
 values. So `symbol "("` will chomp one paren and produce a `()` value.
@@ -350,14 +350,14 @@ implKeep (P x) (P f) =
 
 For example, maybe we want to parse some JavaScript variables:
 
-    import SafeParser exposing (Parser, chompIf, chompWhile, getChompedString, succeed, skip1, skip0, run)
+    import SafeParser as SP
 
-    var : Parser oneOrMore String
+    var : SP.Parser oneOrMore String
     var =
-        succeed ()
-            |> skip1 (chompIf isStartChar)
-            |> skip0 (chompWhile isInnerChar)
-            |> getChompedString
+        SP.succeed ()
+            |> SP.skip1 (SP.chompIf isStartChar)
+            |> SP.skip0 (SP.chompWhile isInnerChar)
+            |> SP.getChompedString
 
     isStartChar : Char -> Bool
     isStartChar char =
@@ -367,7 +367,7 @@ For example, maybe we want to parse some JavaScript variables:
     isInnerChar char =
         isStartChar char || Char.isDigit char
 
-    run var "$hello" --> Ok "$hello"
+    SP.run var "$hello" --> Ok "$hello"
 
 `chompIf isStartChar` can chomp one character and produce a `()` value.
 `chompWhile isInnerChar` can chomp zero or more characters and produce a `()`
@@ -416,20 +416,20 @@ Only the _last_ parser passed to a pipeline of `or`s can be a `ZeroOrMore`
 parser. This prevents you from accidentally creating pipelines where some of the
 parsers are unreachable.
 
-    import SafeParser exposing (Parser, or, map, symbol, run)
+    import SafeParser as SP
 
     type NullableBool
         = Boolean Bool
         | Null
 
-    nullableBool : Parser oneOrMore NullableBool
+    nullableBool : SP.Parser oneOrMore NullableBool
     nullableBool =
-        (map (\_ -> Boolean True) (symbol "true"))
-            |> or (map (\_ -> Boolean False) (symbol "false"))
-            |> or (map (\_ -> Null) (symbol "null"))
+        (SP.symbol "true" |> SP.map (\_ -> Boolean True))
+            |> SP.or (SP.symbol "false" |> SP.map (\_ -> Boolean False))
+            |> SP.or (SP.symbol "nul" |> SP.map (\_ -> Null))
 
-    run nullableBool "true" --> Ok (Boolean True)
-    run nullableBool "null" --> Ok (Null)
+    SP.run nullableBool "true" --> Ok (Boolean True)
+    SP.run nullableBool "null" --> Ok (Null)
 
 -}
 or : Parser any a -> Parser OneOrMore a -> Parser any a
@@ -566,18 +566,19 @@ done =
 continue the loop or return a value. If the first callback fails, run the second
 callback and either continue or return a value.
 
-    import SafeParser exposing (loop, chompIf, continue, or, succeed, done, getChompedString, run)
+    import SafeParser as SP
 
     digits =
-        loop
+        SP.loop
             ()
             (\state ->
-                (chompIf Char.isDigit |> continue)
-                    |> or (succeed () |> done)
+                (SP.chompIf Char.isDigit |> SP.continue)
+                    |> SP.or (SP.succeed () |> SP.done)
             )
-            |> getChompedString
+            |> SP.getChompedString
 
-    run digits "1234abc" --> Ok "1234"
+    SP.run digits "1234abc" --> Ok "1234"
+
 -}
 loop :
     state

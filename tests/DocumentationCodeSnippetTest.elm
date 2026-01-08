@@ -334,18 +334,16 @@ type NullableBool__SafeParser__or_0
 
 nullableBool__SafeParser__or_0 : SafeParser.Parser oneOrMore NullableBool__SafeParser__or_0
 nullableBool__SafeParser__or_0 =
-    SafeParser.map
-        (\_ -> Boolean__SafeParser__or_0 Basics.True)
-        (SafeParser.symbol "true")
+    (SafeParser.symbol "true"
+        |> SafeParser.map (\_ -> Boolean__SafeParser__or_0 Basics.True)
+    )
         |> SafeParser.or
-            (SafeParser.map
-                (\_ -> Boolean__SafeParser__or_0 Basics.False)
-                (SafeParser.symbol "false")
+            (SafeParser.symbol "false"
+                |> SafeParser.map (\_ -> Boolean__SafeParser__or_0 Basics.False)
             )
         |> SafeParser.or
-            (SafeParser.map
-                (\_ -> Null__SafeParser__or_0)
-                (SafeParser.symbol "null")
+            (SafeParser.symbol "nul"
+                |> SafeParser.map (\_ -> Null__SafeParser__or_0)
             )
 
 
