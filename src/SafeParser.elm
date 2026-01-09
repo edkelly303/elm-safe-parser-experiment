@@ -3,9 +3,9 @@ module SafeParser exposing
     , OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
     , symbol
     , succeed, problem
-    , keep1, keep0, skip1, skip0
-    , or, backtrackable
-    , map, andThen00, andThen10, andThen01
+    , keep, skip
+    , oneOf, or, backtrackable
+    , map, andThen
     , Step, continue, done, loop
     )
 
@@ -34,17 +34,17 @@ module SafeParser exposing
 
 ## Combining parsers
 
-@docs keep1, keep0, skip1, skip0
+@docs keep, skip
 
 
 ## Choosing parsers
 
-@docs or, backtrackable
+@docs oneOf, or, backtrackable
 
 
 ## Transforming parsers
 
-@docs map, andThen00, andThen10, andThen01
+@docs map, andThen
 
 
 ## Looping parsers
@@ -115,7 +115,7 @@ type ZeroOrMore
 
     import SafeParser as SP
 
-    chompUpper : SP.Parser oneOrMore ()
+    chompUpper : SP.Parser OneOrMore ()
     chompUpper =
         SP.chompIf Char.isUpper
 
@@ -124,7 +124,7 @@ type ZeroOrMore
 So this can chomp a character like `"T"` and produces a `()` value.
 
 -}
-chompIf : (Char -> Bool) -> Parser oneOrMore ()
+chompIf : (Char -> Bool) -> Parser OneOrMore ()
 chompIf test =
     P (ElmParser.chompIf test)
 
@@ -134,11 +134,11 @@ useful for chomping whitespace or variable names:
 
     import SafeParser as SP
 
-    whitespace : SP.Parser SP.ZeroOrMore ()
+    whitespace : SP.Parser zeroOrMore ()
     whitespace =
         SP.chompWhile (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
 
-    elmVar : SP.Parser oneOrMore String
+    elmVar : SP.Parser OneOrMore String
     elmVar =
         SP.succeed identity
             |> SP.keep1 (SP.chompIf Char.isLower)
@@ -150,7 +150,7 @@ useful for chomping whitespace or variable names:
 Note: a `chompWhile` parser always succeeds!
 
 -}
-chompWhile : (Char -> Bool) -> Parser ZeroOrMore ()
+chompWhile : (Char -> Bool) -> Parser zeroOrMore ()
 chompWhile test =
     P (ElmParser.chompWhile test)
 
@@ -161,7 +161,7 @@ valid PHP variables like $x and $txt:
 
     import SafeParser as SP
 
-    php : SP.Parser oneOrMore String
+    php : SP.Parser OneOrMore String
     php =
         SP.succeed ()
             |> SP.skip1 (SP.chompIf (\c -> c == '$'))
@@ -211,7 +211,7 @@ getChompedString (P p) =
 fail if asked to match an empty string.
 
 -}
-symbol : String -> Parser oneOrMore ()
+symbol : String -> Parser OneOrMore ()
 symbol str =
     P
         (if String.isEmpty str then
@@ -248,7 +248,7 @@ Seems weird on its own, but it is very useful in combination with other
 functions. The docs for `keep1` and `andThen` have some neat examples.
 
 -}
-succeed : a -> Parser ZeroOrMore a
+succeed : a -> Parser zeroOrMore a
 succeed a =
     P (ElmParser.succeed a)
 
@@ -257,7 +257,7 @@ succeed a =
 until I ran into this problem." Check out the `andThen` docs to see an example
 usage.
 -}
-problem : String -> Parser ZeroOrMore a
+problem : String -> Parser zeroOrMore a
 problem string =
     P (ElmParser.problem string)
 
@@ -326,23 +326,8 @@ So in this case, we skip the `()` from `symbol "("`, we keep the `Int` from
 `int`, etc.
 
 -}
-keep1 : Parser OneOrMore a -> Parser any (a -> b) -> Parser oneOrMore b
-keep1 =
-    implKeep
-
-
-{-| Keep values produced by a `ZeroOrMore` parser in a parser pipeline.
-
-See docs for [`keep1`](#keep1).
-
--}
-keep0 : Parser ZeroOrMore a -> Parser any (a -> b) -> Parser any b
-keep0 =
-    implKeep
-
-
-implKeep : Parser any a -> Parser any2 (a -> b) -> Parser any3 b
-implKeep (P x) (P f) =
+keep : Parser any a -> Parser any (a -> b) -> Parser any b
+keep (P x) (P f) =
     P (f |= x)
 
 
@@ -352,7 +337,7 @@ For example, maybe we want to parse some JavaScript variables:
 
     import SafeParser as SP
 
-    var : SP.Parser oneOrMore String
+    var : SP.Parser OneOrMore String
     var =
         SP.succeed ()
             |> SP.skip1 (SP.chompIf isStartChar)
@@ -376,23 +361,8 @@ characters, but skip the two `()` values that get produced. No one cares about
 them.
 
 -}
-skip1 : Parser OneOrMore skip -> Parser any keep -> Parser oneOrMore keep
-skip1 =
-    implSkip
-
-
-{-| Skip values produced by a `ZeroOrMore` parser in a parser pipeline.
-
-See docs for [`skip1`](#skip1).
-
--}
-skip0 : Parser ZeroOrMore skip -> Parser any keep -> Parser any keep
-skip0 =
-    implSkip
-
-
-implSkip : Parser any skip -> Parser any2 keep -> Parser any3 keep
-implSkip (P skipper) (P keeper) =
+skip : Parser any skip -> Parser any keep -> Parser any keep
+skip (P skipper) (P keeper) =
     P (keeper |. skipper)
 
 
@@ -409,12 +379,15 @@ implSkip (P skipper) (P keeper) =
 -}
 
 
-{-| Use this instead of `elm/parser`'s `oneOf` to try a bunch of parsers and go
-with the first one that succeeds.
+{-| TODO DOCS
+-}
+oneOf : List (Parser OneOrMore a) -> Parser OneOrMore a
+oneOf list =
+    P (list |> List.map (\(P p) -> p) |> ElmParser.oneOf)
 
-Only the _last_ parser passed to a pipeline of `or`s can be a `ZeroOrMore`
-parser. This prevents you from accidentally creating pipelines where some of the
-parsers are unreachable.
+
+{-| TODO: DOCS!!!. This prevents you from accidentally creating pipelines where
+some of the parsers are unreachable.
 
     import SafeParser as SP
 
@@ -422,7 +395,7 @@ parsers are unreachable.
         = Boolean Bool
         | Null
 
-    nullableBool : SP.Parser oneOrMore NullableBool
+    nullableBool : SP.Parser OneOrMore NullableBool
     nullableBool =
         (SP.symbol "true" |> SP.map (\_ -> Boolean True))
             |> SP.or (SP.symbol "false" |> SP.map (\_ -> Boolean False))
@@ -432,7 +405,7 @@ parsers are unreachable.
     SP.run nullableBool "null" --> Ok (Null)
 
 -}
-or : Parser any a -> Parser OneOrMore a -> Parser any a
+or : Parser ZeroOrMore a -> Parser OneOrMore a -> Parser zeroOrMore a
 or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
 
@@ -471,48 +444,9 @@ map f (P p) =
 {-| Like [`elm/parser`'s
 `andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen).
 Go read those docs!
-
-`andThen00` is used when the parser returned by the callback in the first
-argument is `ZeroOrMore`, and the parser passed as the second argument is _also_
-`ZeroOrMore`. Since neither of these parsers is guaranteed to chomp any
-characters, `andThen00` returns a `ZeroOrMore` parser.
-
 -}
-andThen00 : (a -> Parser ZeroOrMore b) -> Parser ZeroOrMore a -> Parser ZeroOrMore b
-andThen00 =
-    implAndThen
-
-
-{-| Like [`elm/parser`'s
-`andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen).
-Go read those docs!
-
-`andThen10` is used when the parser passed as the second argument is
-`OneOrMore`. This guarantees that if the parser succeeds, it must chomp one or
-more characters, so `andThen10` can return a `OneOrMore` parser.
-
--}
-andThen10 : (a -> Parser any b) -> Parser OneOrMore a -> Parser oneOrMore b
-andThen10 =
-    implAndThen
-
-
-{-| Like [`elm/parser`'s
-`andThen`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#andThen).
-Go read those docs!
-
-`andThen01` is used when the parser that results from the callback in the first
-argument is `OneOrMore`. This guarantees that if the parser succeeds, it must
-chomp one or more characters, so `andThen10` can return a `OneOrMore` parser.
-
--}
-andThen01 : (a -> Parser OneOrMore b) -> Parser any a -> Parser oneOrMore b
-andThen01 =
-    implAndThen
-
-
-implAndThen : (a -> Parser any1 b) -> Parser any2 a -> Parser any3 b
-implAndThen f (P p) =
+andThen : (a -> Parser any b) -> Parser any a -> Parser any b
+andThen f (P p) =
     let
         elmParserF x =
             let
@@ -549,7 +483,7 @@ type alias Step state a =
 chomp something if it succeeds. This makes it impossible to fall into infinite
 loops.
 -}
-continue : Parser OneOrMore state -> Parser any (Step state a)
+continue : Parser OneOrMore state -> Parser OneOrMore (Step state a)
 continue (P p) =
     P (ElmParser.map ElmParser.Loop p)
 
