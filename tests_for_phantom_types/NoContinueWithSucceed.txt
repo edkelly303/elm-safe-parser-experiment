@@ -1,0 +1,15 @@
+-- TYPE MISMATCH ------------------------------------- NoContinueWithSucceed.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+7|     SP.succeed (\_ -> ())
+8|         |> SP.continue
+              ^^^^^^^^^^^
+The argument is:
+
+    SP.Parser SP.ZeroOrMore (b -> ())
+
+But (|>) is piping it to a function that expects:
+
+    SP.Parser SP.OneOrMore (b -> ())
+
