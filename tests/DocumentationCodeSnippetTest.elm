@@ -51,13 +51,55 @@ tests =
         , Test.describe
             "SafeParser"
             [ Test.describe
-                "keep"
+                "chompIf"
                 [ Test.describe
                     "code snippet 0"
                     [ Test.test
                         "0"
                         (\() ->
-                            SafeParser.run point__SafeParser__keep_0 "(123,456)"
+                            SafeParser.run chompUpper__SafeParser__chompIf_0 "T"
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    ]
+                ]
+            , Test.describe
+                "chompWhile"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                elmVar__SafeParser__chompWhile_0
+                                "helloWorld"
+                                |> Expect.equal (Result.Ok "helloWorld")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "getChompedString"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                php__SafeParser__getChompedString_0
+                                "$my_var"
+                                |> Expect.equal (Result.Ok "$my_var")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "keep1"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                point__SafeParser__keep1_0
+                                "(123,456)"
                                 |> Expect.equal (Result.Ok { x = 123, y = 456 })
                         )
                     ]
@@ -71,6 +113,40 @@ tests =
                         (\() ->
                             SafeParser.run digits__SafeParser__loop_0 "1234abc"
                                 |> Expect.equal (Result.Ok "1234")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "or"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run nullableBool__SafeParser__or_0 "true"
+                                |> Expect.equal
+                                    (Result.Ok
+                                        (Boolean__SafeParser__or_0 Basics.True)
+                                    )
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run nullableBool__SafeParser__or_0 "null"
+                                |> Expect.equal
+                                    (Result.Ok Null__SafeParser__or_0)
+                        )
+                    ]
+                ]
+            , Test.describe
+                "skip1"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run var__SafeParser__skip1_0 "$hello"
+                                |> Expect.equal (Result.Ok "$hello")
                         )
                     ]
                 ]
@@ -178,12 +254,43 @@ ohYeah__Readme_2 =
         )
 
 
-type alias Point__SafeParser__keep_0 =
+chompUpper__SafeParser__chompIf_0 : SafeParser.Parser oneOrMore ()
+chompUpper__SafeParser__chompIf_0 =
+    SafeParser.chompIf Char.isUpper
+
+
+whitespace__SafeParser__chompWhile_0 : SafeParser.Parser SafeParser.ZeroOrMore ()
+whitespace__SafeParser__chompWhile_0 =
+    SafeParser.chompWhile
+        (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
+
+
+elmVar__SafeParser__chompWhile_0 : SafeParser.Parser oneOrMore String.String
+elmVar__SafeParser__chompWhile_0 =
+    SafeParser.succeed Basics.identity
+        |> SafeParser.keep1 (SafeParser.chompIf Char.isLower)
+        |> SafeParser.skip0
+            (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+        |> SafeParser.getChompedString
+
+
+php__SafeParser__getChompedString_0 : SafeParser.Parser oneOrMore String.String
+php__SafeParser__getChompedString_0 =
+    SafeParser.succeed ()
+        |> SafeParser.skip1 (SafeParser.chompIf (\c -> c == '$'))
+        |> SafeParser.skip1
+            (SafeParser.chompIf (\c -> Char.isAlpha c || c == '_'))
+        |> SafeParser.skip0
+            (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+        |> SafeParser.getChompedString
+
+
+type alias Point__SafeParser__keep1_0 =
     { x : Basics.Int, y : Basics.Int }
 
 
-int__SafeParser__keep_0 : SafeParser.Parser SafeParser.OneOrMore Basics.Int
-int__SafeParser__keep_0 =
+int__SafeParser__keep1_0 : SafeParser.Parser SafeParser.OneOrMore Basics.Int
+int__SafeParser__keep1_0 =
     SafeParser.succeed (++)
         |> SafeParser.keep1
             (SafeParser.chompIf Char.isDigit |> SafeParser.getChompedString)
@@ -200,13 +307,13 @@ int__SafeParser__keep_0 =
             )
 
 
-point__SafeParser__keep_0 : SafeParser.Parser SafeParser.OneOrMore Point__SafeParser__keep_0
-point__SafeParser__keep_0 =
-    SafeParser.succeed Point__SafeParser__keep_0
+point__SafeParser__keep1_0 : SafeParser.Parser SafeParser.OneOrMore Point__SafeParser__keep1_0
+point__SafeParser__keep1_0 =
+    SafeParser.succeed Point__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol "(")
-        |> SafeParser.keep1 int__SafeParser__keep_0
+        |> SafeParser.keep1 int__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol ",")
-        |> SafeParser.keep1 int__SafeParser__keep_0
+        |> SafeParser.keep1 int__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol ")")
 
 
@@ -218,3 +325,43 @@ digits__SafeParser__loop_0 =
                 |> SafeParser.or (SafeParser.succeed () |> SafeParser.done)
         )
         |> SafeParser.getChompedString
+
+
+type NullableBool__SafeParser__or_0
+    = Boolean__SafeParser__or_0 Basics.Bool
+    | Null__SafeParser__or_0
+
+
+nullableBool__SafeParser__or_0 : SafeParser.Parser oneOrMore NullableBool__SafeParser__or_0
+nullableBool__SafeParser__or_0 =
+    (SafeParser.symbol "true"
+        |> SafeParser.map (\_ -> Boolean__SafeParser__or_0 Basics.True)
+    )
+        |> SafeParser.or
+            (SafeParser.symbol "false"
+                |> SafeParser.map (\_ -> Boolean__SafeParser__or_0 Basics.False)
+            )
+        |> SafeParser.or
+            (SafeParser.symbol "nul"
+                |> SafeParser.map (\_ -> Null__SafeParser__or_0)
+            )
+
+
+var__SafeParser__skip1_0 : SafeParser.Parser oneOrMore String.String
+var__SafeParser__skip1_0 =
+    SafeParser.succeed ()
+        |> SafeParser.skip1
+            (SafeParser.chompIf isStartChar__SafeParser__skip1_0)
+        |> SafeParser.skip0
+            (SafeParser.chompWhile isInnerChar__SafeParser__skip1_0)
+        |> SafeParser.getChompedString
+
+
+isStartChar__SafeParser__skip1_0 : Char.Char -> Basics.Bool
+isStartChar__SafeParser__skip1_0 char =
+    Char.isAlpha char || char == '_' || char == '$'
+
+
+isInnerChar__SafeParser__skip1_0 : Char.Char -> Basics.Bool
+isInnerChar__SafeParser__skip1_0 char =
+    isStartChar__SafeParser__skip1_0 char || Char.isDigit char

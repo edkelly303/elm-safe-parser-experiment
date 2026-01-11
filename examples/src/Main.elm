@@ -11,25 +11,29 @@ import Html.Events exposing (onClick, onInput)
 import Parser
 import SafeParser
     exposing
-        ( OneOrMore
+        ( --OneOrMore
+          --,
+          ZeroOrMore
         , Parser
           --, Step
-        , ZeroOrMore
-        , andThen
+          --, andThen01
+        , andThen10
+        , andThen00
           --, backtrackable
         , chompIf
         , chompWhile
         , continue
         , done
         , getChompedString
-        , keep
+        , keep1
+        , keep0
         , loop
         , map
-        , oneOf
         , or
         , problem
         , run
-        , skip
+        , skip1
+        , skip0
         , succeed
         , symbol
         )
@@ -42,20 +46,20 @@ type alias Phone =
     }
 
 
-whitespace : Parser zeroOrMore ()
+whitespace : Parser ZeroOrMore ()
 whitespace =
     chompWhile (\c -> c == ' ')
 
 
-countryCode : Parser zeroOrMore (Maybe Int)
+countryCode : Parser ZeroOrMore (Maybe Int)
 countryCode =
     let
         justValidCountryCode =
             succeed Just
-                |> skip whitespace
-                |> skip (symbol "+")
-                |> keep int
-                |> skip whitespace
+                |> skip0 whitespace
+                |> skip1 (symbol "+")
+                |> keep1 int
+                |> skip0 whitespace
 
         nothing =
             succeed Nothing
@@ -64,12 +68,12 @@ countryCode =
         |> or nothing
 
 
-int : Parser OneOrMore Int
+int : Parser oneOrMore Int
 int =
     succeed (\first rest -> first ++ rest)
-        |> keep (chompIf Char.isDigit |> getChompedString)
-        |> keep (chompWhile Char.isDigit |> getChompedString)
-        |> andThen
+        |> keep1 (chompIf Char.isDigit |> getChompedString)
+        |> keep0 (chompWhile Char.isDigit |> getChompedString)
+        |> andThen10
             (\str ->
                 case String.toInt str of
                     Just n ->
@@ -80,17 +84,17 @@ int =
             )
 
 
-areaCode : Parser zeroOrMore (Maybe Int)
+areaCode : Parser ZeroOrMore (Maybe Int)
 areaCode =
     let
         justValidAreaCode =
             succeed String.toInt
-                |> skip (symbol "(")
-                |> skip whitespace
-                |> keep (getChompedString <| chompWhile Char.isDigit)
-                |> skip whitespace
-                |> skip (symbol ")")
-                |> skip whitespace
+                |> skip1 (symbol "(")
+                |> skip0 whitespace
+                |> keep0 (getChompedString <| chompWhile Char.isDigit)
+                |> skip0 whitespace
+                |> skip1 (symbol ")")
+                |> skip0 whitespace
 
         nothing =
             succeed Nothing
@@ -99,7 +103,7 @@ areaCode =
         |> or nothing
 
 
-localNumberString : Parser zeroOrMore String
+localNumberString : Parser ZeroOrMore String
 localNumberString =
     let
         chompDigit state =
@@ -122,16 +126,14 @@ localNumberString =
     in
     loop
         []
-        (\state ->
-            oneOf
-                [ chompDigit state
-                , chompSpace state
-                ]
-                |> or (reverseAndConcat state)
+        
+            (\state ->
+                chompDigit state
+                    |> or (chompSpace state)
+                    |> or (reverseAndConcat state)
         )
 
-
-localNumber : Parser zeroOrMore Int
+localNumber : Parser ZeroOrMore Int
 localNumber =
     let
         checkDigits s =
@@ -142,9 +144,9 @@ localNumber =
                 problem "A NZ phone number has 7 digits"
     in
     localNumberString
-        |> andThen checkDigits
+        |> andThen00 checkDigits
         |> map String.toInt
-        |> andThen
+        |> andThen00
             (\maybe ->
                 case maybe of
                     Just n ->
@@ -155,14 +157,14 @@ localNumber =
             )
 
 
-phoneParser : Parser zeroOrMore Phone
+phoneParser : Parser ZeroOrMore Phone
 phoneParser =
     succeed
         Phone
-        |> skip whitespace
-        |> keep countryCode
-        |> keep areaCode
-        |> keep localNumber
+        |> skip0 whitespace
+        |> keep0 countryCode
+        |> keep0 areaCode
+        |> keep0 localNumber
 
 
 type alias Model =
