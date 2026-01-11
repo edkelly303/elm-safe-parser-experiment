@@ -1,0 +1,15 @@
+-- TYPE MISMATCH ---------------------------------- NoContinueWithChompWhile.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+7|     SP.chompWhile (\c -> c == ' ')
+8|         |> SP.continue
+              ^^^^^^^^^^^
+The argument is:
+
+    SP.Parser SP.ZeroOrMore ()
+
+But (|>) is piping it to a function that expects:
+
+    SP.Parser SP.OneOrMore ()
+

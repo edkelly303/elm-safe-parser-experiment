@@ -14,12 +14,12 @@ elmFiles.forEach(elmFile => {
 
   try {
     const output = execSync(`elm make ./${elmFile}`, { encoding: "utf8", stdio: 'pipe', cwd: __dirname }).toString();
-    console.log(`ERROR: File ${elmFile} compiled, though it shouldn't have!`);
+    console.log(`⚠️  ${elmFile} compiled, though it shouldn't have!`);
     process.exit(1);
   }
   catch (error) {
     if (error.stderr !== expectedOutput) {
-      console.log(`ERROR: File ${elmFile} failed to compile, but with the wrong error message!`);
+      console.log(`⚠️  ${elmFile} failed to compile, but with the wrong error message!`);
       console.log(`EXPECTED:\n\n${expectedOutput}\n\n`);
       console.log(`GOT:\n\n${error.stderr}`);
 
@@ -28,20 +28,14 @@ elmFiles.forEach(elmFile => {
           if (answer == 'y') {
             console.log(`Saving output as ${outputFilename}`);
             fs.writeFileSync(outputFilename, error.stderr);
-            rl.close()
-            process.exit(0);
-          }
-          else {
+            rl.close();
             process.exit(1);
           }
         };
       });
     }
-    else {
-      console.log('No problems with phantom types!');
-      process.exit(0);
-    }
   }
+  console.log(`✅ ${elmFile}`)
 }
 );
 
@@ -51,7 +45,6 @@ function getExpectedOutput(outputFilename) {
   }
   catch (error) {
     fs.writeFileSync(outputFilename, ``);
-    return ``
+    return ``;
   }
 }
-
