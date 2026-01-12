@@ -6,6 +6,7 @@ module DocumentationCodeSnippetTest exposing (tests)
 import Expect
 import Parser
 import SafeParser
+import Set
 import Test
 
 
@@ -77,16 +78,37 @@ tests =
                     ]
                 ]
             , Test.describe
-                "getChompedString"
+                "end"
                 [ Test.describe
                     "code snippet 0"
                     [ Test.test
                         "0"
                         (\() ->
                             SafeParser.run
-                                php__SafeParser__getChompedString_0
-                                "$my_var"
-                                |> Expect.equal (Result.Ok "$my_var")
+                                justOneNumber__SafeParser__end_0
+                                "90210"
+                                |> Expect.equal (Result.Ok "90210")
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run
+                                justOneNumber__SafeParser__end_0
+                                "1 + 2"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 2
+                                          , problem = Parser.ExpectingEnd
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run oneNumber__SafeParser__end_0 "1 + 2"
+                                |> Expect.equal (Result.Ok "1")
                         )
                     ]
                 ]
@@ -101,6 +123,57 @@ tests =
                                 point__SafeParser__keep1_0
                                 "(123,456)"
                                 |> Expect.equal (Result.Ok { x = 123, y = 456 })
+                        )
+                    ]
+                ]
+            , Test.describe
+                "keyword"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run (SafeParser.keyword "let") "let"
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run (SafeParser.keyword "let") "var"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 1
+                                          , problem =
+                                                Parser.ExpectingKeyword "let"
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run (SafeParser.keyword "let") "letters"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 1
+                                          , problem =
+                                                Parser.ExpectingKeyword "let"
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
+                        )
+                    ]
+                , Test.describe
+                    "code snippet 1"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                letBinding__SafeParser__keyword_1
+                                "let x ="
+                                |> Expect.equal (Result.Ok "x")
                         )
                     ]
                 ]
@@ -159,6 +232,30 @@ tests =
                         (\() ->
                             SafeParser.run var__SafeParser__skip1_0 "$hello"
                                 |> Expect.equal (Result.Ok "$hello")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "spaces"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run spaces__SafeParser__spaces_0 "  \n"
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run spaces__SafeParser__spaces_0 ""
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run spaces__SafeParser__spaces_0 "xxx"
+                                |> Expect.equal (Result.Ok ())
                         )
                     ]
                 ]
@@ -238,6 +335,73 @@ tests =
                         )
                     ]
                 ]
+            , Test.describe
+                "token"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run
+                                (SafeParser.token "hello")
+                                "helloWorld"
+                                |> Expect.equal (Result.Ok ())
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run (SafeParser.token "") "whatever"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { row = 1
+                                          , col = 1
+                                          , problem =
+                                                Parser.Problem
+                                                    "The `token` parser cannot match an empty string"
+                                          }
+                                        ]
+                                    )
+                        )
+                    ]
+                ]
+            , Test.describe
+                "variable"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run typeVar__SafeParser__variable_0 "abc"
+                                |> Expect.equal (Result.Ok "abc")
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run typeVar__SafeParser__variable_0 "Abc"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 1
+                                          , problem = Parser.ExpectingVariable
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run typeVar__SafeParser__variable_0 "let"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 1
+                                          , problem = Parser.ExpectingVariable
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
+                        )
+                    ]
+                ]
             ]
         ]
 
@@ -271,12 +435,6 @@ chompUpper__SafeParser__chompIf_0 =
     SafeParser.chompIf Char.isUpper
 
 
-whitespace__SafeParser__chompWhile_0 : SafeParser.Parser SafeParser.ZeroOrMore ()
-whitespace__SafeParser__chompWhile_0 =
-    SafeParser.chompWhile
-        (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
-
-
 elmVar__SafeParser__chompWhile_0 : SafeParser.Parser oneOrMore String.String
 elmVar__SafeParser__chompWhile_0 =
     SafeParser.succeed Basics.identity
@@ -286,15 +444,19 @@ elmVar__SafeParser__chompWhile_0 =
         |> SafeParser.getChompedString
 
 
-php__SafeParser__getChompedString_0 : SafeParser.Parser oneOrMore String.String
-php__SafeParser__getChompedString_0 =
+oneNumber__SafeParser__end_0 : SafeParser.Parser oneOrMore String.String
+oneNumber__SafeParser__end_0 =
     SafeParser.succeed ()
-        |> SafeParser.skip1 (SafeParser.chompIf (\c -> c == '$'))
-        |> SafeParser.skip1
-            (SafeParser.chompIf (\c -> Char.isAlpha c || c == '_'))
-        |> SafeParser.skip0
-            (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+        |> SafeParser.skip1 (SafeParser.chompIf Char.isDigit)
+        |> SafeParser.skip0 (SafeParser.chompWhile Char.isDigit)
         |> SafeParser.getChompedString
+
+
+justOneNumber__SafeParser__end_0 : SafeParser.Parser oneOrMore String.String
+justOneNumber__SafeParser__end_0 =
+    SafeParser.succeed Basics.identity
+        |> SafeParser.keep1 oneNumber__SafeParser__end_0
+        |> SafeParser.skip1 SafeParser.end
 
 
 type alias Point__SafeParser__keep1_0 =
@@ -327,6 +489,24 @@ point__SafeParser__keep1_0 =
         |> SafeParser.skip0 (SafeParser.symbol ",")
         |> SafeParser.keep1 int__SafeParser__keep1_0
         |> SafeParser.skip0 (SafeParser.symbol ")")
+
+
+elmVar__SafeParser__keyword_1 : SafeParser.Parser oneOrMore String.String
+elmVar__SafeParser__keyword_1 =
+    SafeParser.succeed Basics.identity
+        |> SafeParser.keep1 (SafeParser.chompIf Char.isLower)
+        |> SafeParser.skip0
+            (SafeParser.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+        |> SafeParser.getChompedString
+
+
+letBinding__SafeParser__keyword_1 =
+    SafeParser.succeed Basics.identity
+        |> SafeParser.skip1 (SafeParser.keyword "let")
+        |> SafeParser.skip0 SafeParser.spaces
+        |> SafeParser.keep1 elmVar__SafeParser__keyword_1
+        |> SafeParser.skip0 SafeParser.spaces
+        |> SafeParser.skip1 (SafeParser.symbol "=")
 
 
 digits__SafeParser__loop_0 =
@@ -384,3 +564,46 @@ isStartChar__SafeParser__skip1_0 char =
 isInnerChar__SafeParser__skip1_0 : Char.Char -> Basics.Bool
 isInnerChar__SafeParser__skip1_0 char =
     isStartChar__SafeParser__skip1_0 char || Char.isDigit char
+
+
+spaces__SafeParser__spaces_0 : SafeParser.Parser SafeParser.ZeroOrMore ()
+spaces__SafeParser__spaces_0 =
+    SafeParser.chompWhile (\c -> c == ' ' || c == '\n' || c == '\u{000D}')
+
+
+keyword__SafeParser__token_0 : String.String -> SafeParser.Parser oneOrMore ()
+keyword__SafeParser__token_0 kwd =
+    SafeParser.succeed Basics.identity
+        |> SafeParser.skip1 (SafeParser.backtrackable (SafeParser.token kwd))
+        |> SafeParser.keep0
+            (SafeParser.map
+                (\_ -> Basics.True)
+                (SafeParser.backtrackable
+                    (SafeParser.chompIf isVarChar__SafeParser__token_0)
+                )
+                |> SafeParser.or (SafeParser.succeed Basics.False)
+            )
+        |> SafeParser.andThen10 (checkEnding__SafeParser__token_0 kwd)
+
+
+checkEnding__SafeParser__token_0 : String.String -> Basics.Bool -> SafeParser.Parser SafeParser.ZeroOrMore ()
+checkEnding__SafeParser__token_0 kwd isBadEnding =
+    if isBadEnding then
+        SafeParser.problem ("expecting the `" ++ kwd ++ "` keyword")
+
+    else
+        SafeParser.commit ()
+
+
+isVarChar__SafeParser__token_0 : Char.Char -> Basics.Bool
+isVarChar__SafeParser__token_0 char =
+    Char.isAlphaNum char || char == '_'
+
+
+typeVar__SafeParser__variable_0 : SafeParser.Parser oneOrMore String.String
+typeVar__SafeParser__variable_0 =
+    SafeParser.variable
+        { start = Char.isLower
+        , inner = \c -> Char.isAlphaNum c || c == '_'
+        , reserved = Set.fromList [ "let", "in", "case", "of" ]
+        }

@@ -5,7 +5,7 @@ module SafeParser exposing
     , getOffset
     , succeed, problem
     , keep1, keep0, skip1, skip0
-    , oneOf, or, backtrackable
+    , oneOf, or, commit, backtrackable
     , map, andThen00, andThen10, andThen01
     , Step, continue, done, loop
     )
@@ -45,7 +45,7 @@ module SafeParser exposing
 
 ## Choosing parsers
 
-@docs oneOf, or, backtrackable
+@docs oneOf, or, commit, backtrackable
 
 
 ## Transforming parsers
@@ -152,10 +152,6 @@ useful for chomping whitespace or variable names:
 
     import SafeParser as SP
 
-    whitespace : SP.Parser SP.ZeroOrMore ()
-    whitespace =
-        SP.chompWhile (\c -> c == ' ' || c == '\t' || c == '\n' || c == '\u{000D}')
-
     elmVar : SP.Parser oneOrMore String
     elmVar =
         SP.succeed identity
@@ -173,36 +169,28 @@ chompWhile test =
     P (ElmParser.chompWhile test)
 
 
-{-| Sometimes parsers like int or variable cannot do exactly what you need. The
-"chomping" family of functions is meant for that case! Maybe you need to parse
-valid PHP variables like $x and $txt:
-
-    import SafeParser as SP
-
-    php : SP.Parser oneOrMore String
-    php =
-        SP.succeed ()
-            |> SP.skip1 (SP.chompIf (\c -> c == '$'))
-            |> SP.skip1 (SP.chompIf (\c -> Char.isAlpha c || c == '_'))
-            |> SP.skip0 (SP.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
-            |> SP.getChompedString
-
-    SP.run php "$my_var" --> Ok "$my_var"
-
-The idea is that you create a bunch of chompers that validate the underlying
-characters. Then getChompedString extracts the underlying String efficiently.
-
+{-| Like [`elm/parser`'s
+`getChompedString`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#getChompedString).
+Go read those docs!
 -}
 getChompedString : Parser any a -> Parser any String
 getChompedString (P p) =
     P (ElmParser.getChompedString p)
 
 
+{-| Like [`elm/parser`'s
+`mapChompedString`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#mapChompedString).
+Go read those docs!
+-}
 mapChompedString : (String -> a -> b) -> Parser any a -> Parser any b
 mapChompedString f (P p) =
     P (ElmParser.mapChompedString f p)
 
 
+{-| Like [`elm/parser`'s
+`getOffset`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#getOffset).
+Go read those docs!
+-}
 getOffset : Parser ZeroOrMore Int
 getOffset =
     P ElmParser.getOffset
@@ -250,6 +238,44 @@ symbol str =
         )
 
 
+{-| Parse exactly the given `String`, without caring what comes next.
+
+Here is how you could use `token` to implement `keyword`:
+
+    import SafeParser as SP
+    import Parser
+
+    keyword : String -> SP.Parser oneOrMore ()
+    keyword kwd =
+        SP.succeed identity
+            |> SP.skip1 (SP.backtrackable (SP.token kwd))
+            |> SP.keep0
+                (SP.map (\_ -> True) (SP.backtrackable (SP.chompIf isVarChar))
+                    |> SP.or (SP.succeed False)
+                )
+            |> SP.andThen10 (checkEnding kwd)
+
+    checkEnding : String -> Bool -> SP.Parser SP.ZeroOrMore ()
+    checkEnding kwd isBadEnding =
+        if isBadEnding then
+            SP.problem ("expecting the `" ++ kwd ++ "` keyword")
+        else
+            SP.commit ()
+
+    isVarChar : Char -> Bool
+    isVarChar char =
+        Char.isAlphaNum char || char == '_'
+
+    SP.run (SP.token "hello") "helloWorld"
+    --> Ok ()
+
+    SP.run (SP.token "") "whatever"
+    --> Err [ { row = 1, col = 1, problem = Parser.Problem "The `token` parser cannot match an empty string" } ]
+
+**Note:** unlike the `elm/parser` version of this function, `token` will always
+fail if asked to match an empty string.
+
+-}
 token : String -> Parser oneOrMore ()
 token str =
     P
@@ -261,6 +287,45 @@ token str =
         )
 
 
+{-| Parse keywords like `let`, `case`, and `type`.
+
+    import SafeParser as SP
+    import Parser as P
+
+    SP.run (SP.keyword "let") "let" --> Ok ()
+    SP.run (SP.keyword "let") "var" --> Err [ { col = 1, problem = P.ExpectingKeyword "let", row = 1 } ]
+    SP.run (SP.keyword "let") "letters" --> Err [ { col = 1, problem = P.ExpectingKeyword "let", row = 1 } ]
+
+Note: Notice the third case there! `keyword` actually looks ahead one character to
+make sure it is not a letter, number, or underscore. The goal is to help with
+parsers like this:
+
+    import SafeParser as SP
+
+    elmVar : SP.Parser oneOrMore String
+    elmVar =
+        SP.succeed identity
+            |> SP.keep1 (SP.chompIf Char.isLower)
+            |> SP.skip0 (SP.chompWhile (\c -> Char.isAlphaNum c || c == '_'))
+            |> SP.getChompedString
+
+    letBinding =
+        SP.succeed identity
+            |> SP.skip1 (SP.keyword "let")
+            |> SP.skip0 SP.spaces
+            |> SP.keep1 elmVar
+            |> SP.skip0 SP.spaces
+            |> SP.skip1 (SP.symbol "=")
+
+    SP.run letBinding "let x ="
+    --> Ok "x"
+
+The trouble is that `spaces` may chomp zero characters (to handle expressions like
+`[1,2]` and `[ 1 , 2 ]`) and in this case, it would mean `letters` could be parsed as
+`let ters` and then wonder where the equals sign is! Check out the token docs if
+you need to customize this!
+
+-}
 keyword : String -> Parser oneOrMore ()
 keyword str =
     P
@@ -272,18 +337,84 @@ keyword str =
         )
 
 
+{-| Parse zero or more ' ', '\\n', and '\\r' characters.
+
+The implementation is pretty simple:
+
+    import SafeParser as SP
+
+    spaces : SP.Parser SP.ZeroOrMore ()
+    spaces =
+        SP.chompWhile (\c -> c == ' ' || c == '\n' || c == '\u{000D}')
+
+    SP.run spaces "  \n" --> Ok ()
+    SP.run spaces "" --> Ok ()
+    SP.run spaces "xxx" --> Ok ()
+
+Note that as a `ZeroOrMore` parser, `spaces` will alway succeed.
+
+-}
 spaces : Parser ZeroOrMore ()
 spaces =
     P ElmParser.spaces
 
 
+{-| Create a parser for variables. If we wanted to parse type variables in Elm,
+we could try something like this:
+
+    import SafeParser as SP
+    import Set
+    import Parser as P
+
+    typeVar : SP.Parser oneOrMore String
+    typeVar =
+        SP.variable
+            { start = Char.isLower
+            , inner = \c -> Char.isAlphaNum c || c == '_'
+            , reserved = Set.fromList [ "let", "in", "case", "of" ]
+            }
+
+    SP.run typeVar "abc" --> Ok "abc"
+    SP.run typeVar "Abc" --> Err [ { col = 1, problem = P.ExpectingVariable, row = 1 } ]
+    SP.run typeVar "let" --> Err [ { col = 1, problem = P.ExpectingVariable, row = 1 } ]
+
+This is saying it must start with a lower-case character. After that, characters
+can be letters, numbers, or underscores. It is also saying that if you run into
+any of these reserved names, it is definitely not a variable.
+
+-}
 variable :
     { start : Char -> Bool, inner : Char -> Bool, reserved : Set.Set String }
-    -> Parser any String
+    -> Parser oneOrMore String
 variable args =
     P (ElmParser.variable args)
 
 
+{-| Check if you have reached the end of the string you are parsing.
+
+    import SafeParser as SP
+    import Parser as P
+
+    oneNumber : SP.Parser oneOrMore String
+    oneNumber =
+        SP.succeed ()
+            |> SP.skip1 (SP.chompIf (Char.isDigit))
+            |> SP.skip0 (SP.chompWhile (Char.isDigit))
+            |> SP.getChompedString
+
+    justOneNumber : SP.Parser oneOrMore String
+    justOneNumber =
+        SP.succeed identity
+            |> SP.keep1 oneNumber
+            |> SP.skip1 SP.end
+
+    SP.run justOneNumber "90210" --> Ok "90210"
+    SP.run justOneNumber "1 + 2" --> Err [ { col = 2, problem = P.ExpectingEnd, row = 1 } ]
+    SP.run oneNumber     "1 + 2" --> Ok "1"
+
+Parsers can succeed without parsing the whole string. Ending your parser with end guarantees that you have successfully parsed the whole string.
+
+-}
 end : Parser oneOrMore ()
 end =
     P ElmParser.end
@@ -526,6 +657,15 @@ where some of the alternatives are unreachable.
 or : Parser any a -> Parser OneOrMore a -> Parser any a
 or (P this) (P prev) =
     P (ElmParser.oneOf [ prev, this ])
+
+
+{-| Like [`elm/parser`'s
+`commit`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#commit).
+Go read those docs!
+-}
+commit : a -> Parser any a
+commit p =
+    P (ElmParser.commit p)
 
 
 {-| Like [`elm/parser`'s
