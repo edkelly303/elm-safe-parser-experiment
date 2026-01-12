@@ -1,8 +1,8 @@
 module SafeParser exposing
-    ( Parser, run
-    , OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
-    , mapChompedString, getOffset
+    ( Parser, run, toElmParser
+    , OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString, mapChompedString
     , symbol, token, keyword, spaces
+    , getOffset
     , succeed, problem
     , keep1, keep0, skip1, skip0
     , oneOf, or, backtrackable
@@ -15,18 +15,22 @@ module SafeParser exposing
 
 ## Running parsers
 
-@docs Parser, run
+@docs Parser, run, toElmParser
 
 
 ## Chomping inputs
 
-@docs OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
-@docs mapChompedString, getOffset
+@docs OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString, mapChompedString
 
 
 ## Generally useful parsers
 
 @docs symbol, token, keyword, spaces
+
+
+## Metadata parsers
+
+@docs getOffset
 
 
 ## Succeeding and failing
@@ -84,6 +88,17 @@ type Parser any a
 run : Parser any a -> String -> Result (List ElmParser.DeadEnd) a
 run (P p) string =
     ElmParser.run p string
+
+
+{-| Convert a `Parser` from this package to `elm/parser`'s `Parser` type.
+
+This will lose type safety, but might be useful if you need to interoperate with
+other Elm parser libraries like `dmy/elm-pratt-parser`.
+
+-}
+toElmParser : Parser any a -> ElmParser.Parser a
+toElmParser (P p) =
+    p
 
 
 
