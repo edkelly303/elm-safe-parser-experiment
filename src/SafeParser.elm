@@ -1,7 +1,8 @@
 module SafeParser exposing
     ( Parser, run
     , OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
-    , symbol
+    , mapChompedString, getOffset
+    , symbol, token, keyword, spaces
     , succeed, problem
     , keep1, keep0, skip1, skip0
     , oneOf, or, backtrackable
@@ -20,11 +21,12 @@ module SafeParser exposing
 ## Chomping inputs
 
 @docs OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString
+@docs mapChompedString, getOffset
 
 
 ## Generally useful parsers
 
-@docs symbol
+@docs symbol, token, keyword, spaces
 
 
 ## Succeeding and failing
@@ -180,6 +182,16 @@ getChompedString (P p) =
     P (ElmParser.getChompedString p)
 
 
+mapChompedString : (String -> a -> b) -> Parser any a -> Parser any b
+mapChompedString f (P p) =
+    P (ElmParser.mapChompedString f p)
+
+
+getOffset : Parser ZeroOrMore Int
+getOffset =
+    P ElmParser.getOffset
+
+
 
 {-
    db   db d88888b db      d8888b. d88888b d8888b. .d8888.
@@ -220,6 +232,33 @@ symbol str =
          else
             ElmParser.symbol str
         )
+
+
+token : String -> Parser oneOrMore ()
+token str =
+    P
+        (if String.isEmpty str then
+            ElmParser.problem "The `token` parser cannot match an empty string"
+
+         else
+            ElmParser.token str
+        )
+
+
+keyword : String -> Parser oneOrMore ()
+keyword str =
+    P
+        (if String.isEmpty str then
+            ElmParser.problem "The `keyword` parser cannot match an empty string"
+
+         else
+            ElmParser.keyword str
+        )
+
+
+spaces : Parser ZeroOrMore ()
+spaces =
+    P ElmParser.spaces
 
 
 
