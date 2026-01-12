@@ -527,7 +527,7 @@ Go read those docs!
 
 `andThen01` is used when the parser that results from the callback in the first
 argument is `OneOrMore`. This guarantees that if the parser succeeds, it must
-chomp one or more characters, so `andThen10` can return a `OneOrMore` parser.
+chomp one or more characters, so `andThen01` can return a `OneOrMore` parser.
 
 -}
 andThen01 : (a -> Parser OneOrMore b) -> Parser any a -> Parser oneOrMore b
