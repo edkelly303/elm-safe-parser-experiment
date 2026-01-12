@@ -462,8 +462,8 @@ or (P this) (P prev) =
 
 
 {-| Like [`elm/parser`'s
-`backtrackable`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#backtrackable).Go
-read those docs!
+`backtrackable`](https://package.elm-lang.org/packages/elm/parser/latest/Parser#backtrackable).
+Go read those docs!
 -}
 backtrackable : Parser any a -> Parser any a
 backtrackable (P p) =
