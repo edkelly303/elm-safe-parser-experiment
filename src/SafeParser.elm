@@ -4,7 +4,7 @@ module SafeParser exposing
     , symbol
     , succeed, problem
     , keep1, keep0, skip1, skip0
-    , or, backtrackable
+    , oneOf, or, backtrackable
     , map, andThen00, andThen10, andThen01
     , Step, continue, done, loop
     )
@@ -39,7 +39,7 @@ module SafeParser exposing
 
 ## Choosing parsers
 
-@docs or, backtrackable
+@docs oneOf, or, backtrackable
 
 
 ## Transforming parsers
@@ -409,12 +409,33 @@ implSkip (P skipper) (P keeper) =
 -}
 
 
-{-| Use this instead of `elm/parser`'s `oneOf` to try a bunch of parsers and go
-with the first one that succeeds.
+{-| Take a list of `OneOrMore` parsers and try them one after the other until
+one of them succeeds.
 
-Only the _last_ parser passed to a pipeline of `or`s can be a `ZeroOrMore`
-parser. This prevents you from accidentally creating pipelines where some of the
-parsers are unreachable.
+    import SafeParser as SP
+
+    bool : SP.Parser oneOrMore Bool
+    bool =
+        SP.oneOf
+            [ SP.symbol "true" |> SP.map (\_ -> True)
+            , SP.symbol "false" |> SP.map (\_ -> False)
+            ]
+
+    SP.run bool "true" --> Ok True
+
+-}
+oneOf : List (Parser OneOrMore a) -> Parser any a
+oneOf ps =
+    ps
+        |> List.map (\(P p) -> p)
+        |> ElmParser.oneOf
+        |> P
+
+
+{-| Use this if you need to add a `ZeroOrMore` parser as the final alternative
+at the end of a `oneOf` list. By ensuring that only the _last_ alternative
+parser can be `ZeroOrMore`, this prevents you from accidentally creating parsers
+where some of the alternatives are unreachable.
 
     import SafeParser as SP
 
@@ -424,9 +445,12 @@ parsers are unreachable.
 
     nullableBool : SP.Parser oneOrMore NullableBool
     nullableBool =
-        (SP.symbol "true" |> SP.map (\_ -> Boolean True))
-            |> SP.or (SP.symbol "false" |> SP.map (\_ -> Boolean False))
-            |> SP.or (SP.symbol "nul" |> SP.map (\_ -> Null))
+        SP.oneOf
+            [ SP.symbol "true" |> SP.map (\_ -> Boolean True)
+            , SP.symbol "false" |> SP.map (\_ -> Boolean False)
+            ]
+            |> SP.or (SP.symbol "null" |> SP.map (\_ -> Null))
+
 
     SP.run nullableBool "true" --> Ok (Boolean True)
     SP.run nullableBool "null" --> Ok (Null)
