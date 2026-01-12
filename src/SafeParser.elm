@@ -455,7 +455,7 @@ succeed a =
 until I ran into this problem." Check out the `andThen` docs to see an example
 usage.
 -}
-problem : String -> Parser ZeroOrMore a
+problem : String -> Parser any a
 problem string =
     P (ElmParser.problem string)
 
@@ -611,6 +611,7 @@ implSkip (P skipper) (P keeper) =
 one of them succeeds.
 
     import SafeParser as SP
+    import Parser as P
 
     bool : SP.Parser oneOrMore Bool
     bool =
@@ -620,14 +621,21 @@ one of them succeeds.
             ]
 
     SP.run bool "true" --> Ok True
+    SP.run bool "tru" --> Err [ { col = 1, problem = ExpectingSymbol "true", row = 1 }, { col = 1, problem = P.ExpectingSymbol "false", row = 1 } ]
+    SP.run (SP.oneOf []) "a" --> Err [ { col = 1, problem = P.Problem "The `oneOf` parser should be passed a list of at least two parsers", row = 1 } ]
 
 -}
 oneOf : List (Parser OneOrMore a) -> Parser any a
 oneOf ps =
-    ps
-        |> List.map (\(P p) -> p)
-        |> ElmParser.oneOf
-        |> P
+    case ps of
+        _ :: _ :: _ ->
+            ps
+                |> List.map (\(P p) -> p)
+                |> ElmParser.oneOf
+                |> P
+
+        _ ->
+            problem "The `oneOf` parser should be passed a list of at least two parsers"
 
 
 {-| Use this if you need to add a `ZeroOrMore` parser as the final alternative

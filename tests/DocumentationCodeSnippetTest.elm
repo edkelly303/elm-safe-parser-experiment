@@ -190,18 +190,6 @@ tests =
                     ]
                 ]
             , Test.describe
-                "oneOf"
-                [ Test.describe
-                    "code snippet 0"
-                    [ Test.test
-                        "0"
-                        (\() ->
-                            SafeParser.run bool__SafeParser__oneOf_0 "true"
-                                |> Expect.equal (Result.Ok Basics.True)
-                        )
-                    ]
-                ]
-            , Test.describe
                 "or"
                 [ Test.describe
                     "code snippet 0"
@@ -517,14 +505,6 @@ digits__SafeParser__loop_0 =
                 |> SafeParser.or (SafeParser.succeed () |> SafeParser.done)
         )
         |> SafeParser.getChompedString
-
-
-bool__SafeParser__oneOf_0 : SafeParser.Parser oneOrMore Basics.Bool
-bool__SafeParser__oneOf_0 =
-    SafeParser.oneOf
-        [ SafeParser.symbol "true" |> SafeParser.map (\_ -> Basics.True)
-        , SafeParser.symbol "false" |> SafeParser.map (\_ -> Basics.False)
-        ]
 
 
 type NullableBool__SafeParser__or_0
