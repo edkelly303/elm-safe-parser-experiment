@@ -1,4 +1,4 @@
--- TYPE MISMATCH ------------------------------------- NoContinueWithSucceed.elm
+-- TYPE MISMATCH -------------------------------------- NoZeroOrMoreContinue.elm
 
 This function cannot handle the argument sent through the (|>) pipe:
 

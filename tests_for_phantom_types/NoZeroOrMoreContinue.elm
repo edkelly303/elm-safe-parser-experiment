@@ -1,4 +1,4 @@
-module NoContinueWithSucceed exposing (..)
+module NoZeroOrMoreContinue exposing (..)
 
 import SafeParser as SP
 

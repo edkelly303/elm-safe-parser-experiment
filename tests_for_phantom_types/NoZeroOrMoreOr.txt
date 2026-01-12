@@ -1,10 +1,10 @@
--- TYPE MISMATCH ---------------------------------- NoContinueWithChompWhile.elm
+-- TYPE MISMATCH -------------------------------------------- NoZeroOrMoreOr.elm
 
 This function cannot handle the argument sent through the (|>) pipe:
 
-7|     SP.chompWhile (\c -> c == ' ')
-8|         |> SP.continue
-              ^^^^^^^^^^^
+7|     SP.succeed ()
+8|         |> SP.or (SP.succeed ())
+              ^^^^^^^^^^^^^^^^^^^^
 The argument is:
 
     SP.Parser SP.ZeroOrMore ()

@@ -1,0 +1,16 @@
+-- TYPE MISMATCH ----------------------------------------- NoZeroOrMoreOneOf.elm
+
+The 1st argument to `oneOf` is not what I expect:
+
+7|     SP.oneOf
+8|>        [ SP.succeed ()
+9|>        ]
+
+This argument is a list of type:
+
+    List (SP.Parser SP.ZeroOrMore ())
+
+But `oneOf` needs the 1st argument to be:
+
+    List (SP.Parser SP.OneOrMore ())
+
