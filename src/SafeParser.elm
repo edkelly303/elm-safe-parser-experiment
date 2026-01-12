@@ -1,7 +1,7 @@
 module SafeParser exposing
     ( Parser, run, toElmParser
     , OneOrMore, ZeroOrMore, chompIf, chompWhile, getChompedString, mapChompedString
-    , symbol, token, keyword, spaces
+    , spaces, symbol, token, keyword, variable, end
     , getOffset
     , succeed, problem
     , keep1, keep0, skip1, skip0
@@ -25,7 +25,7 @@ module SafeParser exposing
 
 ## Generally useful parsers
 
-@docs symbol, token, keyword, spaces
+@docs spaces, symbol, token, keyword, variable, end
 
 
 ## Metadata parsers
@@ -60,6 +60,7 @@ module SafeParser exposing
 -}
 
 import Parser as ElmParser exposing ((|.), (|=))
+import Set
 
 
 
@@ -274,6 +275,18 @@ keyword str =
 spaces : Parser ZeroOrMore ()
 spaces =
     P ElmParser.spaces
+
+
+variable :
+    { start : Char -> Bool, inner : Char -> Bool, reserved : Set.Set String }
+    -> Parser any String
+variable args =
+    P (ElmParser.variable args)
+
+
+end : Parser oneOrMore ()
+end =
+    P ElmParser.end
 
 
 
