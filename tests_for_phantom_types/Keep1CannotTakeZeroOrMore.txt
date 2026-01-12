@@ -1,0 +1,14 @@
+-- TYPE MISMATCH --------------------------------- Keep1CannotTakeZeroOrMore.elm
+
+The 1st argument to `keep1` is not what I expect:
+
+7|     SP.keep1 (SP.succeed ())
+                 ^^^^^^^^^^^^^
+This `succeed` call produces:
+
+    SP.Parser SP.ZeroOrMore ()
+
+But `keep1` needs the 1st argument to be:
+
+    SP.Parser SP.OneOrMore ()
+

@@ -1,0 +1,15 @@
+-- TYPE MISMATCH ---------------------------------- KeepPropagatesZeroOrMore.elm
+
+Something is off with the body of the `x` definition:
+
+8|>    SP.succeed (always ())
+9|>        |> SP.keep0 (SP.succeed ())
+
+The body is:
+
+    SP.Parser SP.ZeroOrMore ()
+
+But the type annotation on `x` says it should be:
+
+    SP.Parser SP.OneOrMore ()
+

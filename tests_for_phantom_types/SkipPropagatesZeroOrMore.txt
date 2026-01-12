@@ -1,0 +1,15 @@
+-- TYPE MISMATCH ---------------------------------- SkipPropagatesZeroOrMore.elm
+
+Something is off with the body of the `x` definition:
+
+8|>    SP.succeed (always ())
+9|>        |> SP.skip0 (SP.succeed ())
+
+The body is:
+
+    SP.Parser SP.ZeroOrMore (b -> ())
+
+But the type annotation on `x` says it should be:
+
+    SP.Parser SP.OneOrMore ()
+
