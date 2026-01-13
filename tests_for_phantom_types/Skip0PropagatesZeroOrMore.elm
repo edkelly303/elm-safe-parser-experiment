@@ -1,4 +1,4 @@
-module SkipPropagatesZeroOrMore exposing (..)
+module Skip0PropagatesZeroOrMore exposing (..)
 
 import SafeParser as SP
 
