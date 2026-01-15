@@ -51,11 +51,11 @@ it should be doing.
 
 **The solution**
 
-This package solves the problem by replacing `oneOf` with `or` - a new function
-which gives us access to some funky phantom type magic. With `or`, we can
-ensure at compile time that a `ZeroOrMore` parser can only be used as the _last_
-in a set of alternative parsers. This prevents you from accidentally creating
-unreachable parsers.
+This package solves the problem by augmenting `oneOf` with some funky phantom 
+type magic that ensures that it only accepts `OneOrMore` parsers, and adding `or`, 
+a new function which ensures that you can only use a `ZeroOrMore` parser as the 
+_last_ in a set of alternative parsers. This prevents you from accidentally 
+creating unreachable parsers.
 
 Let's say we want to try each of these parsers:
 
