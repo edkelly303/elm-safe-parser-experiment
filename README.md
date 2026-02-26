@@ -105,14 +105,16 @@ import Parser as P
 
 ohDear = 
   P.loop () 
-    (\state -> 
-    P.oneOf 
+    (\() -> 
+      P.oneOf 
+        [ P.chompIf Char.isAlpha |> P.map P.Done
         -- `chompWhile` always succeeds, and if it 
         -- can't chomp anything, we'll fall into...
-        [ P.chompWhile Char.isDigit |> map P.Loop
+        , P.chompWhile Char.isDigit |> P.map P.Loop
         ]
     )
 
+P.run ohDear "1234a" --> Ok ()
 P.run ohDear "!" --! ... an infinite loop!
 ```
 
@@ -129,11 +131,11 @@ import SafeParser as SP
 ohNo = 
   SP.loop 
     ()
-    (\state -> 
-        -- `chompWhile` is a `ZeroOrMore` parser, 
-        -- so it can't be passed to `continue`.
-        (SP.chompWhile Char.isDigit |> SP.continue)
-          |> SP.or (SP.succeed () |> SP.done)
+    (\() -> 
+      -- `chompWhile` is a `ZeroOrMore` parser, 
+      -- so it can't be passed to `continue`.
+      (SP.chompWhile Char.isDigit |> SP.continue)
+        |> SP.or (SP.chompIf Char.isAlpha |> SP.done)
     )
 
 --! TYPE ERROR
@@ -147,11 +149,13 @@ import SafeParser as SP
 ohYeah = 
   SP.loop 
     ()
-    (\state -> 
-        -- `chompIf` is a `OneOrMore` parser,
-        -- so it's fine to pass to `continue`.
-        (SP.chompIf Char.isDigit |> SP.continue) 
-          |> SP.or (SP.succeed () |> SP.done))
+    (\() -> 
+      -- `chompIf` is a `OneOrMore` parser,
+      -- so it's fine to pass to `continue`.
+      (SP.chompIf Char.isDigit |> SP.continue) 
+        |> SP.or (SP.chompIf Char.isAlpha |> SP.done)
+    )
 
-SP.run ohYeah "1234" --> Ok ()
+SP.run ohYeah "1234a" --> Ok ()
+SP.run ohYeah "!" --> Err [ { col = 1, problem = UnexpectedChar, row = 1 }, { col = 1, problem = UnexpectedChar, row = 1 } ]
 ```
