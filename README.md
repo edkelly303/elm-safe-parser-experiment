@@ -39,7 +39,8 @@ oops =
     ] 
     |> P.getChompedString
 
-P.run oops "a" --> Ok ""
+P.run oops "1234a" --> Ok "1234" -- Uh oh, we didn't get the "a"?!
+P.run oops "a" --> Ok "" -- Yep, we're never gonna get the "a".
 ```
 
 The problem isn't just that this feels a bit counterintuitive, it's that the
@@ -115,7 +116,7 @@ ohDear =
     )
 
 P.run ohDear "1234a" --> Ok ()
-P.run ohDear "!" --! ... an infinite loop!
+P.run ohDear "!" --! KABOOM! An infinite loop!
 ```
 
 **The solution**
@@ -145,6 +146,7 @@ But this is ok:
 
 ```elm
 import SafeParser as SP
+import Parser as P
 
 ohYeah = 
   SP.loop 
@@ -157,5 +159,5 @@ ohYeah =
     )
 
 SP.run ohYeah "1234a" --> Ok ()
-SP.run ohYeah "!" --> Err [ { col = 1, problem = UnexpectedChar, row = 1 }, { col = 1, problem = UnexpectedChar, row = 1 } ]
+SP.run ohYeah "!" --> Err [ { col = 1, problem = P.UnexpectedChar, row = 1 }, { col = 1, problem = P.UnexpectedChar, row = 1 } ]
 ```

@@ -621,7 +621,7 @@ one of them succeeds.
             ]
 
     SP.run bool "true" --> Ok True
-    SP.run bool "tru" --> Err [ { col = 1, problem = ExpectingSymbol "true", row = 1 }, { col = 1, problem = P.ExpectingSymbol "false", row = 1 } ]
+    SP.run bool "tru" --> Err [ { col = 1, problem = P.ExpectingSymbol "true", row = 1 }, { col = 1, problem = P.ExpectingSymbol "false", row = 1 } ]
     SP.run (SP.oneOf []) "a" --> Err [ { col = 1, problem = P.Problem "The `oneOf` parser should be passed a list of at least two parsers", row = 1 } ]
 
 -}

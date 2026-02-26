@@ -21,6 +21,12 @@ tests =
                 [ Test.test
                     "0"
                     (\() ->
+                        Parser.run oops__Readme_0 "1234a"
+                            |> Expect.equal (Result.Ok "1234")
+                    )
+                , Test.test
+                    "1"
+                    (\() ->
                         Parser.run oops__Readme_0 "a"
                             |> Expect.equal (Result.Ok "")
                     )
@@ -44,8 +50,25 @@ tests =
                 [ Test.test
                     "0"
                     (\() ->
-                        SafeParser.run ohYeah__Readme_2 "1234"
+                        SafeParser.run ohYeah__Readme_2 "1234a"
                             |> Expect.equal (Result.Ok ())
+                    )
+                , Test.test
+                    "1"
+                    (\() ->
+                        SafeParser.run ohYeah__Readme_2 "!"
+                            |> Expect.equal
+                                (Result.Err
+                                    [ { col = 1
+                                      , problem = Parser.UnexpectedChar
+                                      , row = 1
+                                      }
+                                    , { col = 1
+                                      , problem = Parser.UnexpectedChar
+                                      , row = 1
+                                      }
+                                    ]
+                                )
                     )
                 ]
             ]
@@ -186,6 +209,52 @@ tests =
                         (\() ->
                             SafeParser.run digits__SafeParser__loop_0 "1234abc"
                                 |> Expect.equal (Result.Ok "1234")
+                        )
+                    ]
+                ]
+            , Test.describe
+                "oneOf"
+                [ Test.describe
+                    "code snippet 0"
+                    [ Test.test
+                        "0"
+                        (\() ->
+                            SafeParser.run bool__SafeParser__oneOf_0 "true"
+                                |> Expect.equal (Result.Ok Basics.True)
+                        )
+                    , Test.test
+                        "1"
+                        (\() ->
+                            SafeParser.run bool__SafeParser__oneOf_0 "tru"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 1
+                                          , problem =
+                                                Parser.ExpectingSymbol "true"
+                                          , row = 1
+                                          }
+                                        , { col = 1
+                                          , problem =
+                                                Parser.ExpectingSymbol "false"
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
+                        )
+                    , Test.test
+                        "2"
+                        (\() ->
+                            SafeParser.run (SafeParser.oneOf []) "a"
+                                |> Expect.equal
+                                    (Result.Err
+                                        [ { col = 1
+                                          , problem =
+                                                Parser.Problem
+                                                    "The `oneOf` parser should be passed a list of at least two parsers"
+                                          , row = 1
+                                          }
+                                        ]
+                                    )
                         )
                     ]
                 ]
@@ -412,9 +481,10 @@ oneAlpha__Readme_1 =
 ohYeah__Readme_2 =
     SafeParser.loop
         ()
-        (\state ->
+        (\() ->
             (SafeParser.chompIf Char.isDigit |> SafeParser.continue)
-                |> SafeParser.or (SafeParser.succeed () |> SafeParser.done)
+                |> SafeParser.or
+                    (SafeParser.chompIf Char.isAlpha |> SafeParser.done)
         )
 
 
@@ -505,6 +575,14 @@ digits__SafeParser__loop_0 =
                 |> SafeParser.or (SafeParser.succeed () |> SafeParser.done)
         )
         |> SafeParser.getChompedString
+
+
+bool__SafeParser__oneOf_0 : SafeParser.Parser oneOrMore Basics.Bool
+bool__SafeParser__oneOf_0 =
+    SafeParser.oneOf
+        [ SafeParser.symbol "true" |> SafeParser.map (\_ -> Basics.True)
+        , SafeParser.symbol "false" |> SafeParser.map (\_ -> Basics.False)
+        ]
 
 
 type NullableBool__SafeParser__or_0
